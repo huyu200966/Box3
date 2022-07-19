@@ -1,0 +1,2514 @@
+world.querySelectorAll('.pb').forEach((e)=>{e.meshInvisible=true})
+world.onEntityContact(({ entity, other }) => {
+    if (entity.id == "城市门"){
+        if(other.player.incar != 0){
+            other.position=new Box3Vector3(13,80,16);
+        }else{
+            other.player.directMessage("行人不允许上高速")
+        }
+    }
+    if (entity.id == "农村门"){
+        if(other.player.incar != 0){
+            other.position=new Box3Vector3(120,10,48);
+        }else{
+            other.player.directMessage("行人不允许上高速")
+        }
+    }
+});
+world.onDie(({ entity }) => {
+        if (entity.isPlayer){
+            const car = world.querySelector("#"+entity.player.car);
+            entity.player.walkSpeed = 0.22
+            entity.player.runSpeed = 0.4
+            entity.mesh = entity
+            entity.player.invisible=false
+            car.collides = true
+            car.meshInvisible=false;
+            car.enableInteract = true
+            if (entity.position.y <=70){
+                set_y = 10.5
+            }else{
+                set_y = 80.6
+            }
+            car.position=new Box3Vector3(entity.position.x,set_y,entity.position.z);
+            if (entity.player.tian != -1){
+                tian.splice(entity.player.tian,1,"")
+                world.querySelectorAll("."+entity.player.tian).forEach((sd_s) => {
+                    g_t = g_t+1
+                    sd_s.destroy()
+                });
+            }
+            if (entity.player.room!=0){
+                if (entity.player.floor == 20){
+                    r_f1.splice(entity.player.room_n,1,"")
+                }
+                if (entity.player.floor == 30){
+                    r_f2.splice(entity.player.room_n,1,"")
+                }
+            }
+            if (entity.player.gp != -1){
+                world.querySelectorAll(".gp_xc").forEach((d_xc) => {;
+                    if (d_xc.id == entity.player.p){
+                        d_xc.interactHint = "无人租铺，快到办事中心租铺吧！"
+                    }
+                })
+                world.querySelectorAll(".gp_dy").forEach((d_dy) => {;
+                    if (d_dy.id == entity.player.p){
+                        d_dy.enableInteract = false;
+                    }
+                })
+                gp_ifms.splice(entity.player.gp,1,"")
+            }
+            entity.mesh = entity
+            entity.player.floor=0;
+            entity.player.room=0;
+            entity.player.p = 0
+            entity.player.car = 0
+            entity.player.tian = -1
+            entity.player.cangt = 0
+            entity.player.onbus = 0
+            entity.player.sd = 0
+            entity.player.zz = 0
+            entity.player.sdzz = 0
+            entity.player.ls = 0
+            entity.player.je = 100
+            entity.player.yyf = 0
+            entity.player.fish = 0
+            entity.player.can_ks = 0
+            entity.player.jinbi = 100
+            entity.player.is_xs = 1
+            if(entity.player.sy==""){
+                entity.player.sy="血量扣光"
+            }
+            const dialog = entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "系统",
+                content: `game over\n死亡方式：${entity.player.sy}\n点击重生\n注意：金币将不再是你的`,
+            });
+            entity.player.sy=""
+            entity.player.forceRespawn();
+        }
+    });
+(async function(){
+    world.onPlayerJoin(async({ entity }) => {
+        while (true){
+            await sleep(1)
+            if (entity.position.y>70){
+                entity.player.music.sample = 'audio/欢乐斗地主 - TSAR 网游农村 ver.mp3';
+            }else{
+                entity.player.music.sample = 'audio/欢乐斗地主 - TSAR cyberpunk remix.mp3';
+            }
+        }
+    })
+})();
+(async function(){
+    world.querySelectorAll(".bed").forEach((bed) => {
+        bed.enableInteract = true; 
+        bed.interactRadius = 3;   
+        bed.interactHint = bed.id; 
+        bed.interactColor = new Box3RGBColor(1,1,1);  
+        bed.onInteract(async({entity}) => {
+            entity.player.llz = 0
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: bed.id,               
+                lookEye: entity,             // 将相机放在玩家位置
+                lookTarget: bed, 
+                content: `睡觉中。。。`,
+            });
+            await sleep(3000)
+            entity.player.llz = 0
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: bed.id,               
+                content: `劳累值减小为0了！`,
+            });
+        });
+    });
+    world.onPlayerJoin(async({ entity }) => {
+        entity.player.llz = 0
+        while (true){
+            await sleep(2500)
+            entity.player.llz = entity.player.llz + 0.5
+            if(entity.player.llz % 20 == 0){
+                entity.player.directMessage(`你的劳累值增加了20，目前劳累值为${entity.player.llz}，注意休息哦~`)
+            }
+            if(entity.player.llz == 80){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "系统",
+                    content: `你很累了，预计将在80秒后死亡，请尽快去休息（到你订的酒店或买的别墅睡觉）`,
+                });
+            }
+            if(entity.player.llz>=100){
+                entity.player.sy="累死（劳累值为100）"
+                entity.player.llz=0
+                entity.hp = 0
+            }
+        }
+    });
+})();
+(async function(){
+    world.onPlayerLeave(async({ entity }) => {
+        if (entity.player.is_xs == 1){
+            await db.sql`INSERT INTO leaderboard VALUES (${entity.player.userKey}, ${entity.player.jinbi})`;
+        }else{
+            await db.sql`DELETE FROM leaderboard WHERE key=${entity.player.userKey}`
+            await db.sql`INSERT INTO leaderboard VALUES (${entity.player.userKey}, ${entity.player.jinbi})`;
+        }
+    });
+})();
+(async function() {
+    await db.sql`CREATE TABLE IF NOT EXISTS leaderboard (
+        key,
+        jinbi
+    )`
+}());
+(async function(){
+    var door = world.querySelector('#创作节接龙')
+    world.querySelectorAll('.pass_door').forEach((e)=>{e.meshInvisible=true})
+    door.enableInteract = true
+    door.interactRadius = 2
+    door.interactHint = "全民接龙大创作-下一个地图"
+    door.onInteract(({ entity }) => {
+        entity.player.link('https://box3.codemao.cn/p/play---mengzhicheng')
+    })
+    var qe = world.querySelector('#友情链接')
+    qe.enableInteract = true
+    qe.interactRadius = 3
+    qe.interactHint = "友情链接 - 打酱油的企鹅的参赛作品"
+    qe.onInteract(({ entity }) => {
+        entity.player.link('https://box3.codemao.cn/p/sims-box3')
+    })
+})();
+(async function(){
+world.onPlayerJoin(async ({entity})=>{
+    entity.player.incar = 0
+    entity.player.music.sample = 'audio/欢乐斗地主 - TSAR 网游农村 ver.mp3';
+    const rows = await db.sql`SELECT * FROM leaderboard WHERE key=${entity.player.userKey}ORDER BY jinbi`; 
+    if(entity.player.userKey == "azojq0stiPGQMSnh" || entity.player.boxId == "lyj19800214" || entity.player.boxId == "scEb8c8Ers9NkoC"){
+        entity.player.canFly=true
+    }
+    entity.player.cameraMode='fps'
+    entity.player.floor=0;
+    entity.player.room=0;
+    entity.player.sy=""
+    entity.player.p = 0
+    entity.player.car = 0
+    entity.player.incar = 0
+    entity.player.tian = -1
+    entity.player.cangt = 0
+    entity.player.onbus = 0
+    entity.player.sd = 0
+    entity.player.zz = 0
+    entity.player.fish = 0
+    entity.player.sdzz = 0
+    entity.player.ls = 0
+    entity.player.je = 100
+    entity.player.yyf = 0
+    entity.player.can_ks = 0
+    entity.enableDamage = true
+    entity.showHealthBar=true;
+    if (rows && !rows.length) { 
+        entity.player.jinbi = 100
+        entity.player.is_xs = 1
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "技术喵Vicent轩和单纯的大黄鸡",
+            content: `你好，${entity.player.name}，等了你一万年你终于来了，你现在有${entity.player.jinbi}个金币，快去玩吧~`,
+        });
+        return null;
+    }else{
+        entity.player.jinbi = rows[0].jinbi
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "技术喵Vicent轩和单纯的大黄鸡",
+            content: `你好，${entity.player.name}，欢迎回来！你的金币余额是${entity.player.jinbi}，继续玩耍吧~`,
+        });
+    }
+    while (true){
+        await sleep(2000)
+        entity.player.je = entity.player.je - 0.5
+        if(entity.player.je % 20 == 0){
+            entity.player.directMessage(`你的饥饿值增大了20，目前能量值为${entity.player.je}`)
+        }
+        if(entity.player.je == 20){
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "系统",
+                content: `你的能量即将耗尽，预计将在60秒后死亡，请尽快去附近的厨房点煮饭并找红桌子点击吃饭`,
+            });
+        }
+        if (entity.player.je == 0){
+            entity.player.sy="饿死（能量值为0）"
+            entity.player.je=100
+            entity.hp=0
+        }
+    }
+});
+})();
+(async function(){
+    r_f1 = ["","",""]
+    r_f2 = ["","",""]
+    world.onPlayerLeave(({ entity }) => {
+        if (entity.player.room!=0){
+            if (entity.player.floor == 20){
+                r_f1.splice(entity.player.room_n,1,"")
+            }
+            if (entity.player.floor == 30){
+                r_f2.splice(entity.player.room_n,1,"")
+            }
+        }
+    });
+    const npc = world.querySelector('#酒店客服-餐厅');
+    npc.enableInteract = true; 
+    npc.interactRadius = 3;   
+    npc.interactHint = "购买餐厅进入券"; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+    npc.onInteract(async({entity}) => { 
+        const result = await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            lookEye: entity,             // 将相机放在玩家位置
+            lookTarget: npc,             // 相机镜头对准NPC
+            content: `你好，${entity.player.name}，用餐愉快哦,点击对话框传送~`,
+        });
+        entity.position=new Box3Vector3(25.5,40,111);
+    });
+    const tf = world.querySelector('#酒店客服-退房');
+    tf.enableInteract = true; 
+    tf.interactRadius = 3;   
+    tf.interactHint = tf.id; 
+    tf.interactColor = new Box3RGBColor(1,1,1);  
+    tf.onInteract(async({entity}) => {
+        if (entity.player.room != 0){
+            if (entity.player.floor == 20){
+                r_f1.splice(entity.player.room_n,1,"")
+            }
+            if (entity.player.floor == 30){
+                r_f2.splice(entity.player.room_n,1,"")
+            }
+            entity.player.room = 0
+            entity.player.floor = 0
+            entity.player.room_n = 0
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "退房",
+                content: `你好，${entity.player.name}，退房成功了哦~`,
+            }); 
+        }else{
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "退房",
+                content: `你好，${entity.player.name}，你还没有房间，订房请到隔壁排队哦~`,
+            });
+        }
+    });
+    const h = world.querySelector('#酒店客服');
+    h.enableInteract = true; 
+    h.interactRadius = 3;   
+    h.interactHint = "酒店客服-订房"; 
+    h.interactColor = new Box3RGBColor(1,1,1);  
+    h.onInteract(async({entity}) => {
+        if (entity.player.room != 0){
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "订房",
+                content: `你好，${entity.player.name}，你的房间是${entity.player.room}哦~\n如果你需要退房，请到右边排队`,
+            });
+            return
+        }
+        if (entity.position.x >= 12 && entity.position.x < 12.8 && entity.position.z >= 78){
+            if (entity.player.jinbi >= 50){
+                room = ""
+                for (var i=0; i<3; i++){
+                    if (r_f1[i] == ""){
+                        num = i+1
+                        room = "20"+num
+                        r_f1.splice(i,1,entity.player.name)
+                        entity.player.floor = 20
+                        entity.player.room_n = num-1
+                        break
+                    }
+                }
+                if (room == ""){
+                    for (var i=0; i<3; i++){
+                        if (r_f2[i] == ""){
+                            num = i+1
+                            room = "30" + num
+                            r_f2.splice(i,1,entity.player.name)
+                            entity.player.floor = 30
+                            entity.player.room_n = num
+                            break
+                        }
+                    }
+                }
+                if (room == ""){
+                    const result = await entity.player.dialog({
+                        type: Box3DialogType.TEXT,   
+                        title: "订房",               
+                        content: `抱歉，${entity.player.name}，已经没有房间了。`,
+                    });
+                }else{
+                    entity.player.jinbi = entity.player.jinbi - 50;
+                    entity.player.room = room
+                    const result = await entity.player.dialog({
+                    type: Box3DialogType.TEXT,   
+                    title: "订房",               
+                    content: `你好，${entity.player.name}，你的房间是${room}，扣费成功！余额${entity.player.jinbi}，注意：因住房紧张，你离开世界后本房子会出租给别人哦~`,
+                });
+                }
+            }else{
+                const result = await entity.player.dialog({
+                    type: Box3DialogType.TEXT,   
+                    title: "订房",               
+                    content: `抱歉，${entity.player.name}，你的钱似乎不太够呢，需要50金币哦~`,
+                });
+            }
+        }else{
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "订房",
+                content: `你好，${entity.player.name}，请在线内排队`,
+            });
+        }
+    });
+})();
+(async function(){
+    world.querySelectorAll(".酒店大堂传送门").forEach((r) => {;
+        r.enableInteract = true; 
+        r.interactRadius = 2;   
+        r.interactHint = "酒店大堂传送门"; 
+        r.interactColor = new Box3RGBColor(1,1,1);  
+        r.onInteract(async({entity}) => {
+            entity.position=new Box3Vector3(4.5,10,74);
+        });
+    })
+})();
+(async function(){
+    world.querySelectorAll(".inter").forEach((gg) => {;
+        gg.enableInteract = true; 
+        gg.interactRadius = 3;   
+        gg.interactHint = gg.id; 
+        gg.interactColor = new Box3RGBColor(1,1,1);  
+        gg.onInteract(async({entity}) => {
+            if (entity.player.room == gg.id){
+                gg.collides = false
+                gg.meshInvisible = true
+                await sleep(1000)
+                gg.meshInvisible = false
+                gg.collides = true
+            }
+        });
+    })
+})();
+(async function(){
+    const go = world.querySelector('#酒店传送门');
+    go.enableInteract = true; 
+    go.interactRadius = 3;   
+    go.interactHint = "酒店传送门"; 
+    go.interactColor = new Box3RGBColor(1,1,1);  
+    go.onInteract(async({entity}) => {
+    if (entity.player.floor != 0){
+        entity.position=new Box3Vector3(25.5,entity.player.floor,111);
+    }else{
+        const result = await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: "传送门",               
+            content: `抱歉，${entity.player.name}，只有订了房间或购买了餐厅进入券的访客才能传送哦~`,
+        });
+    }
+});
+})();
+(async function(){
+    gp_name = ["A101","A102","A105","A106","B102","B103","B104","B105","B106","C105","C106","A202","A203","A301","A302","A303","A304"]
+    gp_ifms = ["","","","","","","","","","","","","","","","",""]
+    world.onPlayerLeave(({ entity }) => {
+        if (entity.player.gp != -1){
+            world.querySelectorAll(".gp_xc").forEach((d_xc) => {;
+                if (d_xc.id == entity.player.p){
+                    d_xc.interactHint = "无人租铺，快到办事中心租铺吧！"
+                }
+            })
+            world.querySelectorAll(".gp_dy").forEach((d_dy) => {;
+                if (d_dy.id == entity.player.p){
+                    d_dy.enableInteract = false;
+                }
+            })
+            gp_ifms.splice(entity.player.gp,1,"")
+        }
+    });
+    const tz = world.querySelector('#退租');
+    tz.enableInteract = true; 
+    tz.interactRadius = 3;   
+    tz.interactHint = "退租"; 
+    tz.interactColor = new Box3RGBColor(1,1,1);  
+    tz.onInteract(async({entity}) => {
+        gp_ifms.splice(entity.player.p,1,"")
+        world.querySelectorAll(".gp_xc").forEach((tc_n) => {;
+            if (tc_n.id == entity.player.p){
+                tc_n.interactHint = "无人租铺，快到办事中心租铺吧！"
+            }
+        })
+        world.querySelectorAll(".gp_dy").forEach((td_n) => {;
+            if (td_n.id == entity.player.p){
+                td_n.enableInteract = false;
+            }
+        })
+        entity.player.p = 0
+        const result = await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: tz.id,               
+            content: `你好，${entity.player.name}，退租成功！`,
+        });
+    });
+    const npc = world.querySelector('#租铺');
+    npc.enableInteract = true; 
+    npc.interactRadius = 2;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);
+    npc.onInteract(async({entity}) => {
+        if (entity.player.p != 0){
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "租铺",
+                content: `你好，${entity.player.name}，你已经有铺了哦~\n你的店铺位置是${gp_name[entity.player.p]}\n如果你想退租请到2号窗口排队。`,
+            });
+            return
+        }
+        if(entity.player.jinbi < 100){
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "租铺",
+                content: `你好，${entity.player.name}，你的钱不够。`,
+            });
+            return
+        }
+        npc.enableInteract = false;
+        const result = await entity.player.dialog({
+        type: Box3DialogType.SELECT,
+        title: "租铺",
+        content: `${entity.player.name}，你要租啥铺？`,
+        options: ['地面铺（在地面的商店）', '商店铺（在A座2-3楼的店铺）'],
+        });
+        if(!result || result === null){ 
+            gp_ifms.splice(p,1,"") 
+            entity.player.gp = 0
+            npc.enableInteract = true
+            return;  
+        }
+        switch (result.index) {
+            case 0:
+                p = ""
+                p_d = ""
+                for (var i=0; i<10; i++){
+                    if (gp_ifms[i] == ""){
+                        num = i+1
+                        gp_ifms.splice(i,1,entity.player.name)
+                        entity.player.gp = i
+                        p_d =gp_name[i]
+                        p = i
+                        break
+                    }
+                }
+                if (p_d == ""){
+                    const result = await entity.player.dialog({
+                    type: Box3DialogType.TEXT,   
+                    title: npc.id,               
+                    lookEye: entity,             // 将相机放在玩家位置
+                    lookTarget: npc,             // 相机镜头对准NPC
+                    content: `你好，${entity.player.name}，已经没有地面铺了`,
+                });
+                return
+                }
+                break;
+            case 1:
+                // 如果选择了第二项，即：'现在没空'
+                p = ""
+                p_d = ""
+                for (var i=11; i<17; i++){
+                    if (gp_ifms[i] == ""){
+                        num = i+1
+                        gp_ifms.splice(i,1,entity.player.name)
+                        entity.player.gp = i
+                        p_d =gp_name[i]
+                        p = i
+                        break
+                    }
+                }
+                if (p_d == ""){
+                    const result = await entity.player.dialog({
+                    type: Box3DialogType.TEXT,   
+                    title: npc.id,               
+                    lookEye: entity,             // 将相机放在玩家位置
+                    lookTarget: npc,             // 相机镜头对准NPC
+                    content: `你好，${entity.player.name}，已经没有商店铺了`,
+                    });
+                    return
+                }
+                break;
+            default:
+                // 注意，使用 switch 分支的时候，不要漏了后面的 break; 
+        }
+            const _ = await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: npc.id,               
+                lookEye: entity,             // 将相机放在玩家位置
+                lookTarget: npc,             // 相机镜头对准NPC
+                content: `你好，${entity.player.name}，扣费成功啦！点击进行店铺编辑`,
+            });
+            ifmt = ["",""]
+            shop_ifmt_n = ["","",""]
+            shop_ifmt_m = ["","",""]
+            const g_p_name = await entity.player.dialog({
+                type: Box3DialogType.INPUT,
+                title: "租店铺",
+                content: `${entity.player.name}，请输入你的店铺名字`,
+                confirmText: '确定', 
+                placeholder: '名字', 
+            });
+            if(!g_p_name || g_p_name === null){
+                gp_ifms.splice(p,1,"") 
+                entity.player.gp = 0
+                npc.enableInteract = true
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "租铺失败！",
+                    content: `输入信息无法录入，已取消租铺`,
+                });
+                return; 
+            }
+            ifmt.splice(0,1,g_p_name)
+            const g_p_xc = await entity.player.dialog({
+                type: Box3DialogType.INPUT,
+                title: "租店铺",
+                content: `${entity.player.name}，请输入你的店铺的宣传语`,
+                confirmText: '确定', 
+                placeholder: '会在门口给你展示出来的哦~', 
+            });
+            if(!g_p_xc || g_p_xc === null){
+                gp_ifms.splice(p,1,"") 
+                entity.player.gp = 0
+                npc.enableInteract = true
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "租铺失败！",
+                    content: `输入信息无法录入，已取消租铺`,
+                });
+                return; 
+            }
+            ifmt.splice(1,1,g_p_xc)
+            for (var i=0; i<3; i++){
+                const s_name = await entity.player.dialog({
+                type: Box3DialogType.INPUT,
+                title: "租店铺",
+                content: `${entity.player.name}，请输入你的店铺商品${i+1}的名字`,
+                confirmText: '确定', 
+                placeholder: '不输入的后果自负哦~', 
+                });
+                if(!s_name || s_name === null){
+                gp_ifms.splice(p,1,"") 
+                entity.player.gp = 0
+                npc.enableInteract = true
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "租铺失败！",
+                    content: `输入信息无法录入，已取消租铺`,
+                });
+                return; 
+            }
+                shop_ifmt_n.splice(i,1,s_name)
+                const m = await entity.player.dialog({
+                type: Box3DialogType.INPUT,
+                title: "租店铺",
+                content: `${entity.player.name}，请输入你的店铺商品${i+1}的价格`,
+                confirmText: '确定', 
+                placeholder: '不输入的后果自负哦~', 
+                });
+                if(!m || m === null){
+                gp_ifms.splice(p,1,"") 
+                entity.player.gp = 0
+                npc.enableInteract = true
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "租铺失败！",
+                    content: `输入信息无法录入，已取消租铺`,
+                });
+                return; 
+            }
+                shop_ifmt_m.splice(i,1,m)
+            }
+            shop = [ifmt,shop_ifmt_n,shop_ifmt_m]
+            gp_ifms.splice(p,1,shop)
+            world.querySelectorAll(".gp_xc").forEach((c_n) => {;
+                if (c_n.id == p){
+                    c_n.interactHint = gp_ifms[c_n.id][0][0]
+                }
+            })
+            world.querySelectorAll(".gp_dy").forEach((dy) => {;
+                if (dy.id == p){
+                    dy.enableInteract = true;
+                    dy.interactRadius = 5;
+                    dy.interactHint = gp_ifms[dy.id][0][0]
+                    dy.interactColor = new Box3RGBColor(1,1,1);
+                    dy.onInteract(async({entity}) => {
+                        const buy = await entity.player.dialog({
+                        type: Box3DialogType.SELECT,
+                        title: gp_ifms[dy.id][0][0],
+                        content: `欢迎光临${entity.player.name}，你要买点啥？`,
+                        options: [gp_ifms[dy.id][1][0]+"   "+gp_ifms[dy.id][2][0],gp_ifms[dy.id][1][1]+"   "+gp_ifms[dy.id][2][1],gp_ifms[dy.id][1][2]+"   "+gp_ifms[dy.id][2][2]],   // 将提供玩家选择的选项放入数组里。
+                    });
+                    if(!buy || buy === null){ 
+                        return; 
+                    }
+                    // 判断玩家选了什么选项。
+                    switch (buy.index) {
+                        case 0:
+                            if(entity.player.jinbi < Number(gp_ifms[dy.id][2][0])){
+                                entity.player.dialog({
+                                    type: Box3DialogType.TEXT,
+                                    title: gp_ifms[dy.id][0][0],
+                                    content: `你好，${entity.player.name}，你的钱不够哦~余额${entity.player.jinbi}。`,
+                                });
+                                return
+                            }
+                            entity.player.jinbi = entity.player.jinbi - Number(gp_ifms[dy.id][2][0])
+                            world.querySelectorAll("player").forEach((dz)=>{
+                                if (dz.player.gp == dy.id){
+                                    dz.player.jinbi = dz.player.jinbi + Number(gp_ifms[dy.id][2][0])
+                                    dz.player.directMessage(`${entity.player.name}在你的地面铺买东西了！你收到了${gp_ifms[dy.id][2][0]}个金币，余额${dz.player.jinbi}`)
+                                }
+                            });
+                            const by = entity.player.dialog({
+                                type: Box3DialogType.TEXT,
+                                title: gp_ifms[dy.id][0][0],
+                                content: `购买成功！你余额${entity.player.jinbi}`,
+                            });
+                            break;
+                        case 1:
+                            if(entity.player.jinbi < Number(gp_ifms[dy.id][2][1])){
+                                entity.player.dialog({
+                                    type: Box3DialogType.TEXT,
+                                    title: gp_ifms[dy.id][0][0],
+                                    content: `你好，${entity.player.name}，你的钱不够哦~余额${entity.player.jinbi}。`,
+                                });
+                                return
+                            }
+                            entity.player.jinbi = entity.player.jinbi - Number(gp_ifms[dy.id][2][1])
+                            world.querySelectorAll("player").forEach((d_g)=>{
+                                if (d_g.player.gp == dy.id){
+                                    d_g.player.jinbi = d_g.player.jinbi + Number(gp_ifms[dy.id][2][1])
+                                    d_g.player.directMessage(`${entity.player.name}在你的地面铺买东西了！你收到了${gp_ifms[dy.id][2][1]}个金币，余额${d_g.player.jinbi}`)
+                                }
+                            });
+                            const omg = entity.player.dialog({
+                                type: Box3DialogType.TEXT,
+                                title: gp_ifms[dy.id][0][0],
+                                content: `购买成功！你的余额${entity.player.jinbi}`,
+                            });
+                            break;
+                        case 2:
+                            if(entity.player.jinbi < Number(gp_ifms[dy.id][2][2])){
+                                entity.player.dialog({
+                                    type: Box3DialogType.TEXT,
+                                    title: gp_ifms[dy.id][0][0],
+                                    content: `你好，${entity.player.name}，你的钱不够哦~余额${entity.player.jinbi}。`,
+                                });
+                                return
+                            }
+                            entity.player.jinbi = entity.player.jinbi - Number(gp_ifms[dy.id][2][2])
+                            world.querySelectorAll("player").forEach((dg)=>{
+                                if (dg.player.gp == dy.id){
+                                    dg.player.jinbi = dg.player.jinbi + Number(gp_ifms[dy.id][2][2])
+                                    dg.player.directMessage(`${entity.player.name}在你的地面铺买东西了！你收到了${gp_ifms[dy.id][2][2]}个金币，余额${dg.player.jinbi}`)
+                                }
+                            });
+                            const ct = entity.player.dialog({
+                                type: Box3DialogType.TEXT,
+                                title: gp_ifms[dy.id][0][0],
+                                content: `购买成功！你余额${entity.player.jinbi}`,
+                            });
+                        default:
+                            // 注意，使用 switch 分支的时候，不要漏了后面的 break; 
+                    }
+
+                    });
+                }
+            })
+            entity.player.p = p
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "租铺成功！",
+                content: `你好，${entity.player.name}，以下为你的店铺信息：\n店名：${ifmt[0]}\n宣传语：${ifmt[1]}\n商品有：${shop_ifmt_n}\n价格为：${shop_ifmt_m}\n位置为${p_d}`,
+            });
+            npc.enableInteract = true;
+    });
+    world.querySelectorAll(".gp_xc").forEach((xc) => {;
+        xc.enableInteract = true;
+        xc.interactRadius = 5;
+        xc.interactHint = "无人租铺，快去办事中心租铺吧！"
+        xc.interactColor = new Box3RGBColor(1,1,1);
+        xc.onInteract(async({entity}) => {
+            try{
+                const result = await entity.player.dialog({
+                    type: Box3DialogType.TEXT,   
+                    title: gp_ifms[xc.id][0][0],               
+                    content: `${gp_ifms[xc.id][0][1]}\n你好，${entity.player.name}，进来看看吗？`,
+                });
+            }catch(err){
+                const result = await entity.player.dialog({
+                    type: Box3DialogType.TEXT,   
+                    title: "此店待出租",               
+                    content: `你好，${entity.player.name}，这个店还没有主人，你可以来当这个店的主人哦！到办事中心1号窗办理就可以啦~`,
+                });
+            }
+        });
+    })
+})();
+(async function(){
+    const elevator = world.querySelector('#电梯地板-1') // 获取电梯地板实体
+    world.querySelectorAll('.ld1').forEach((e)=>{e.collides=false})
+    world.querySelectorAll('.ld1').forEach((e)=>{e.meshInvisible=true})
+    move = 0 //用于判断电梯是否正在移动的变量
+    floor = "1"
+    elevator.collides = true // 电梯开启碰撞检测
+    elevator.fixed = true // 电梯不受外力影响
+    elevator.onEntityContact(({entity, other})=>{ // 实时监测整个世界的实体碰撞事件。entity指被碰撞的实体, other则是主动撞过来的实体
+        if (move == 0){ //避免重复引发事件带来的电梯鬼畜
+            if (entity.id=='电梯地板-1' && other.isPlayer){ // 如果 玩家踏上了电梯
+                if (elevator.position.y<=18){ // 如果电梯y低于2楼地板, 则判定玩家在1楼
+                    world.querySelectorAll('.ld1').forEach((e)=>{e.collides=true})
+                    world.querySelectorAll('.ld1').forEach((e)=>{e.meshInvisible=false})
+                    entity.velocity.y = 0.1 // 电梯持续上移
+                    move = 1 //设置值为1，表示电梯开始移动
+                }else{
+                    world.querySelectorAll('.ld2').forEach((e)=>{e.collides=true})
+                    world.querySelectorAll('.ld2').forEach((e)=>{e.meshInvisible=false})
+                    entity.velocity.y = -0.1 // 电梯持续下移
+                    move = 1 //设置值为1，表示电梯开始移动
+                }
+            }
+        }
+    })
+    world.querySelector("#b1").onClick(async ({entity,clicker,button})=>{
+        clicker.player.directMessage("电梯呼叫成功")
+        if (entity.id != floor){
+            elevator.velocity.y = -0.1
+            world.querySelectorAll('.lda').forEach((e)=>{e.collides=true})
+            world.querySelectorAll('.lda').forEach((e)=>{e.meshInvisible=false})
+        }
+
+    });
+    world.querySelector("#b2").onClick(async ({entity,clicker,button})=>{
+        clicker.player.directMessage("电梯呼叫成功")
+        if (entity.id != floor){
+            elevator.velocity.y = 0.1
+            world.querySelectorAll('.lda').forEach((e)=>{e.collides=true})
+            world.querySelectorAll('.lda').forEach((e)=>{e.meshInvisible=false})
+        }
+        });
+    world.onTick(async()=>{ // 实时检测电梯位置, 进行检测是否到达1楼或2楼
+        if (elevator.position.y>26){ // 如果电梯y坐标高于2楼的地板, 电梯到达2楼
+            elevator.position.y = 26 // 复位到2楼的准确位置
+            elevator.velocity.y = 0 // 电梯停止移动
+            floor = "2"
+            world.querySelectorAll('.ld2').forEach((e)=>{e.collides=false})
+            world.querySelectorAll('.ld2').forEach((e)=>{e.meshInvisible=true})
+            await sleep(3000) //等待1秒，避免电梯停止时玩家弹起再次与电梯发生碰撞让电梯下行
+            move = 0 //设置为0，表示电梯停止移动
+        }
+        if (elevator.position.y < 17){ // 如果电梯y坐标低于1楼的地板, 电梯到达1楼
+            elevator.position.y = 17 // 复位到1楼的准确位置
+            elevator.velocity.y = 0 // 电梯停止移动
+            floor = "1"
+            world.querySelectorAll('.ld1').forEach((e)=>{e.collides=false})
+            world.querySelectorAll('.ld1').forEach((e)=>{e.meshInvisible=true})
+            await sleep(3000) //等待1秒，避免电梯停止时玩家弹起再次与电梯发生碰撞让电梯上行
+            move = 0 //设置为0，表示电梯停止移动
+
+        }
+    })
+})();
+(async function(){//绿色系统
+    wu = 0
+    canzs=1
+    world.onTick(({ tick }) => {
+        if (wu > 0 && wu<= 0.9){
+            world.maxFog = wu;
+        }else{
+            if(wu >= 0.9){
+                world.maxFog = 0.9
+            }else{
+                world.maxFog = 0
+            }
+        }
+    });
+    world.querySelectorAll('.car').forEach((npc) => {;
+    npc.enableInteract = true; 
+    npc.interactRadius = 5;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+    npc.onInteract(async({entity}) => {
+        ispcar = 0
+        world.querySelectorAll("player").forEach((entity)=>{
+            if (entity.player.car == npc.id){
+                ispcar = 1
+            }
+        });
+        if (ispcar == 1 && entity.player.car != npc.id){
+            return
+        }
+        if(entity.player.car != npc.id && entity.player.car != 0){
+            return
+        }
+        if (entity.player.car != npc.id){
+            if (entity.player.jinbi<20){
+                return
+            }
+            entity.player.jinbi = entity.player.jinbi - 20
+            entity.player.car = npc.id
+            entity.player.directMessage('扣费成功！按空格可下车')
+        }
+        wu = wu + 0.05
+        entity.player.walkSpeed = 0.4
+        entity.player.runSpeed = 0.8
+        entity.player.incar = 1
+        entity.position=new Box3Vector3(npc.position.x,npc.position.y,npc.position.z);
+        entity.player.directMessage('上车成功！按空格可下车')
+        entity.mesh=npc.mesh
+        entity.position.y = entity.position.y + 5
+        npc.collides = false
+        entity.meshScale=npc.meshScale;  //设置玩家外观缩放比例.
+        entity.player.invisible=true;  //如果模型比玩家小,就需要隐藏玩家的皮肤.
+        npc.meshInvisible=true;
+        npc.enableInteract = false
+    });
+    world.onPress(({button,entity,position,raycast:{direction}}) => {
+        if (entity.player.car == 0){
+            return
+        }
+        if(entity.player.incar == 0){
+            return
+        }
+        const car = world.querySelector("#"+entity.player.car);
+            if (button == 'jump'){
+                entity.player.walkSpeed = 0.22
+                entity.player.runSpeed = 0.4
+                entity.mesh = entity
+                entity.player.invisible=false
+                car.collides = true
+                car.meshInvisible=false;
+                car.enableInteract = true
+                if (entity.position.y <=70){
+                    set_y = 10.5
+                }else{
+                    set_y = 80.6
+                }
+                car.position=new Box3Vector3(entity.position.x,set_y,entity.position.z);
+                entity.position.y = entity.position.y + 4
+                car.meshOrientation= new Box3Quaternion(0, direction.z, 0, 1)
+                entity.player.incar = 0
+            }
+        })
+    });
+    world.onPress(async({ button, entity,raycast:{voxelIndex,distance,hitEntity}}) => {
+    if(button == 'action0'){
+        if(voxels.getVoxel(voxelIndex.x,voxelIndex.y,voxelIndex.z) != 317){
+            return
+        }
+        if (entity.player.zz < 1){
+            entity.player.directMessage("你没有种子了哦~可以去木屋买哦")
+            return
+        }
+        if (canzs == 0){
+            if (voxels.getVoxel(voxelIndex.x,voxelIndex.y,voxelIndex.z) == 317){
+                entity.player.directMessage("有树正在成长，现在不能种树哦~请过1-3秒后再试")
+                return
+            }
+        }
+        if(distance>20){
+            if (voxels.getVoxel(voxelIndex.x,voxelIndex.y,voxelIndex.z) == 317){
+                entity.player.directMessage("太远了，无法种树，凑近点吧~")
+            }
+            return
+        }
+        canzs = 0
+        entity.player.zz = entity.player.zz - 1
+        const e = world.createEntity({
+            mesh:'mesh/树.vb',
+            friction:0, // 关闭摩擦力
+            collides:1,
+            position:[
+                voxelIndex.x-0.5,
+                voxelIndex.y+4,
+                voxelIndex.z-0.5,
+            ],
+        });
+        e.addTag("树")
+        big = 0
+        for(var i=0; i<200; i++){
+            big = big+0.001
+            e.meshScale =new Box3Vector3(big,big,big)
+            e.position=new Box3Vector3(voxelIndex.x,e.position.y,voxelIndex.z);
+            await sleep(10)
+        }
+        e.fixed = 1
+        e.position.y = 13.3
+        e.velocity.x=0
+        e.velocity.y=0
+        e.velocity.z=0
+        canzs = 1
+        wu = wu - 0.1
+    }else{
+        if(button == 'action1'){
+            if(!hitEntity || hitEntity == null){
+                return
+            }
+            if(hitEntity.hasTag("树")){
+                hitEntity.destroy()
+                entity.player.jinbi = entity.player.jinbi + 1
+                entity.player.directMessage("砍树成功！金币加1，你现在有"+entity.player.jinbi+"个金币")
+                wu = wu - 0.05
+            }
+        }
+    }
+})
+})();
+(async function(){
+    world.onEntityContact(({ entity, other }) => {
+        if (entity.isPlayer && other.isPlayer){
+            if (entity.player.incar != 0 && other.player.incar != 0){
+                entity.hurt(10)
+                other.hurt(10)
+            world.say(`${entity.player.name}和${other.player.name}车撞车了`)
+            }
+            if (entity.player.incar == 0 && other.player.incar != 0){
+                entity.hurt(10)
+                other.player.jinbi == other.player.jinbi-10
+                world.say(`${entity.player.name}被${other.player.name}开车撞伤了`)
+            }
+            if (entity.player.incar != 0 && other.player.incar == 0){
+                other.hurt(10)
+            }
+        }
+    });
+})();
+(async function(){
+    tian = ["","","","",""]
+    g_t = 0
+    b_name = ""
+    const ay = world.querySelector('#农村部阿姨');
+    ay.enableInteract = true; 
+    ay.interactRadius = 5;   
+    ay.interactHint = ay.id; 
+    ay.interactColor = new Box3RGBColor(1,1,1);  
+    ay.onInteract(async({entity}) => {
+        if (g_t<1  && b_name == ""){
+            const result = await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: ay.id,               
+                content: `你好，${entity.player.name}，我这里暂时没有任务哦。`,
+            });
+            return
+        }
+        if (b_name != ""){
+            if (entity.player.name == b_name){
+                if (entity.player.gc == 0){
+                    b_name=""
+                    await entity.player.dialog({
+                        type: Box3DialogType.TEXT,   
+                        title: ay.id,               
+                        content: `谢谢你，${entity.player.name}，这15金币就给你啦！`,
+                    });
+                    entity.player.jinbi = entity.player.jinbi + 15
+                    return
+                }else{
+                    await entity.player.dialog({
+                        type: Box3DialogType.TEXT,   
+                        title: ay.id,               
+                        content: `你还没去卖吗？快去吧~`,
+                    });
+                    return
+                }
+            }
+        }
+        entity.player.gc = g_t
+        g_t = 0
+        b_name = entity.player.name
+        const result = await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: ay.id,               
+            content: `你好，${entity.player.name}，请你帮我把这些水稻卖到城市的批发部去吗？就在C101，谢谢！会有报酬的`,
+        });
+    });
+    world.onPlayerLeave(({ entity }) => {
+        if (entity.player.tian != -1){
+            tian.splice(entity.player.tian,1,"")
+            world.querySelectorAll("."+entity.player.tian).forEach((sd_s) => {
+                g_t = g_t+1
+                sd_s.destroy()
+            });
+        }
+    });
+    world.onPress(async({ button, entity ,raycast:{voxelIndex,hitEntity}}) => {
+        if (entity.player.cangt == 0 ){
+            return
+        }
+        if(button == 'action0'){
+           try{
+               a=hitEntity.id
+           }catch(omg){
+                if(voxels.getVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z)==364){
+                    const sd = world.createEntity({
+                        mesh:'mesh/茂盛的草.vb',
+                        meshScale:new Box3Vector3(0.05,0.05,0.05),
+                        collides:false,
+                        gravity:false,
+                        friction:0, // 关闭摩擦力
+                        position:[
+                            voxelIndex.x+0.5,
+                            voxelIndex.y + 1.4,
+                            voxelIndex.z+0.5,
+                        ],
+                    });
+                    sd.addTag(entity.player.tian)
+                    await sleep(120000)
+                    sd.mesh = 'mesh/成熟的草.vb'
+                }
+           }
+            
+        }
+        if(button =='action1'){
+            if(!hitEntity || hitEntity === null){
+                return
+            }
+            if (hitEntity.mesh != 'mesh/成熟的草.vb'){
+                entity.player.directMessage('还没有熟哦，还不能收割')
+                return
+            }
+            hitEntity.destroy()
+            entity.player.sd = entity.player.sd+1
+            entity.player.directMessage(`收割成功！你现在有${entity.player.sd}个水稻了`)
+        }
+    })
+    const npc = world.querySelector('#买田');
+    npc.enableInteract = true; 
+    npc.interactRadius = 5;   
+    npc.interactHint = "田地管理处"; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+    npc.onInteract(async({entity}) => {
+    if (entity.player.jinbi<30){
+        entity.player.directMessage("抱歉，你的钱不够")
+        return
+    }else{
+        entity.player.jinbi = entity.player.jinbi - 30
+    }
+    entity.player.tian = -1
+    for (var j=0; j<5; j++){
+        if(tian[j] == ""){
+            ht=j
+            entity.player.tian = j
+            tian.splice(entity.player.tian,1,entity.player.name)
+            break
+        }
+    }
+    if (entity.player.tian==-1){
+        entity.player.tian=-1
+        await entity.player.dialog({
+        type: Box3DialogType.TEXT,   
+        title: "租田",               
+        content: `抱歉，${entity.player.name}，已经没有田了`,
+        });
+        return
+    }
+    if(entity.player.tian != 0){
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: "租田",               
+            content: `你好，${entity.player.name}，你已经有田了哦，不能再租田了\n您的田编号为${entity.player.tian}`,
+        });
+        return
+    }
+    await entity.player.dialog({
+        type: Box3DialogType.TEXT,   
+        title: "租田",               
+        content: `你好，${entity.player.name}，您的田编号为${entity.player.tian}\n扣费已成功，余额${entity.player.jinbi}`,
+    });
+    });
+    const t1 = world.addZone({
+    selector: 'player',
+    bounds: {
+        lo: [28,  79, 48],
+        hi: [44, 85, 64],
+    },
+    })
+    t1.onEnter(({ entity }) => {
+        if (entity.player.tian == 0){
+            entity.player.cangt = 1
+        }
+    });
+    t1.onLeave(({ entity }) => {
+        entity.player.cangt = 0
+    });
+    const t2 = world.addZone({
+    selector: 'player',
+    bounds: {
+        lo: [28,  79, 66],
+        hi: [43, 85, 82],
+    },
+    })
+    t2.onEnter(({ entity }) => {
+        if (entity.player.tian == 1){
+            entity.player.cangt = 1
+        }
+    });
+    t2.onLeave(({ entity }) => {
+        entity.player.cangt = 0
+    });
+    const t3 = world.addZone({
+    selector: 'player',
+    bounds: {
+        lo: [15,  79, 52],
+        hi: [25, 85, 82],
+    },
+    })
+    t3.onEnter(({ entity }) => {
+        if (entity.player.tian == 2){
+            entity.player.cangt = 1
+        }
+    });
+    t3.onLeave(({ entity }) => {
+        entity.player.cangt = 0
+    });
+    const t4 = world.addZone({
+    selector: 'player',
+    bounds: {
+        lo: [28,  79, 84],
+        hi: [42, 85, 105],
+    },
+    })
+    t4.onEnter(({ entity }) => {
+        if (entity.player.tian == 3){
+            entity.player.cangt = 1
+        }
+    });
+    t4.onLeave(({ entity }) => {
+        entity.player.cangt = 0
+    });
+    const t5 = world.addZone({
+    selector: 'player',
+    bounds: {
+        lo: [14,  79, 79],
+        hi: [26, 85, 100],
+    },
+    })
+    t5.onEnter(({ entity }) => {
+        if (entity.player.tian == 4){
+            entity.player.cangt = 1
+        }
+    });
+    t5.onLeave(({ entity }) => {
+        entity.player.cangt = 0
+    });
+})();
+(async function(){
+    const bus = world.querySelector("#巴士");
+    bus.onInteract(async({entity}) => {
+        if (entity.player.onbus!=0 || entity.player.incar != 0){
+            return
+        }
+        entity.player.onbus = 1
+        entity.player.spectator = true
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: "巴士",               
+            content: `你好，${entity.player.name}，欢迎乘坐城村线巴士！此版本的巴士免费，按左键（虚拟键a）即可下车`,
+        });
+        while (entity.player.onbus != 0){
+            await sleep(1)
+            entity.position=new Box3Vector3(bus.position.x,bus.position.y,bus.position.z);
+        }
+    });
+    world.onPress(({ button, entity }) => {
+        if(button == 'action0'){
+            if(entity.player.onbus!=1){
+                return
+            }
+            entity.fixed=false
+            entity.player.onbus = 0
+            entity.player.spectator = false
+            entity.position.y = entity.position.y+5
+        }
+    })
+    world.onTick(({ tick }) => {
+        if(bus.position.x <= 3){
+            bus.position=new Box3Vector3(120,11.7,48);
+        }
+        if(bus.position.x >= 125){
+            bus.position=new Box3Vector3(7,81.7,17);
+        }
+    });
+    while (true){
+        bus.enableInteract = true;
+        bus.interactHint="巴士-开往城市"
+        await sleep(10000)
+        bus.velocity.x = -0.6
+        bus.enableInteract = false;
+        while (true){
+            await sleep(1)
+            if(bus.position.y<70){
+                break
+            }
+        }
+        while (true){
+            await sleep(1)
+            if(bus.position.x<=80){
+                break
+            }
+        }
+        bus.velocity.x = 0
+        bus.enableInteract = true;
+        bus.interactHint="巴士-开往农村"
+        await sleep(10000)
+        bus.velocity.x = 0.6
+        bus.enableInteract = false;
+        while (true){
+            await sleep(1)
+            if(bus.position.y>70){
+                break
+            }
+        }
+        while (true){
+            await sleep(1)
+            if(bus.position.x>=104){
+                break
+            }
+        }
+        bus.velocity.x=0
+    }
+})();
+(async function(){
+    function isNumber(val) {
+    var regPos = /^\d+(\.\d+)?$/; //非负浮点数
+    var regNeg = /^(-(([0-9]+\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\.[0-9]+)|([0-9]*[1-9][0-9]*)))$/; //负浮点数
+    if(regPos.test(val) || regNeg.test(val)) {
+        return true;
+        } else {
+        return false;
+        }
+    }
+    world.querySelectorAll(".mls").forEach((mls) => {
+        mls.enableInteract = true; 
+        mls.interactRadius = 3;   
+        mls.interactHint = mls.id; 
+        mls.interactColor = new Box3RGBColor(1,1,1);
+        mls.onInteract(async({entity}) => {
+            const result = await entity.player.dialog({
+                type: Box3DialogType.INPUT,
+                title: mls.id,
+                content: `${entity.player.name}，你要买多少份粮食？`,
+                confirmText: '确定', 
+                placeholder: '只能输入数字哦~', 
+            });
+
+            
+            if(!result || result === null){ 
+                return; 
+            }
+            if (isNumber(result) == false){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: mls.id,
+                    content: `你好，${entity.player.name}，请输入数字！`,
+                });
+                return
+            }
+            if(Number(result)<1){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: mls.id,
+                    content: `你好，${entity.player.name}，你输入的数目无法识别，交易取消了。`,
+                });
+                return
+            }
+            if(entity.player.jinbi < 3*Number(result)){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: mls.id,
+                    content: `你好，${entity.player.name}，你的钱不够哦，1份粮食3块钱。`,
+                });
+                return
+            }else{
+                if(ls < Number(result)){
+                    entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: mls.id,
+                        content: `我们已经没有粮食了，正在等待农村部的人来卖粮食`,
+                    });
+                }
+                entity.player.jinbi = entity.player.jinbi - 3*Number(result)
+                entity.player.sd = entity.player.sd + Number(result)
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: mls.id,
+                    content: `购买成功！你现在有${entity.player.sd}份粮食`,
+                });
+            }
+        });
+    });
+    const ks = world.querySelector('#斧头');
+    ks.enableInteract = true; 
+    ks.interactRadius = 3;   
+    ks.interactHint = ks.id; 
+    ks.interactColor = new Box3RGBColor(1,1,1);  
+    ks.onInteract(async({entity}) => {
+        if(entity.player.jinbi<10){
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: ks.id,               
+                content: `你好，${entity.player.name}，你的钱不够哦~需要10元。`,
+            });
+            return
+        }
+        entity.player.jinbi = entity.player.jinbi - 10
+        entity.player.can_ks = 1
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: ks.id,               
+            content: `你好，${entity.player.name}，购买成功！`,
+        });
+    });
+    const npc = world.querySelector('#NPC');
+    npc.enableInteract = true; 
+    npc.interactRadius = 5;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+    npc.onInteract(async({entity}) => {
+    const result =  await entity.player.dialog({
+        type: Box3DialogType.INPUT,
+        title: "树屋种子店",
+        content: `${entity.player.name}，你要买多少个树种子？`,
+        confirmText: '确定', 
+        placeholder: '只能输入数字哦~', 
+    });
+
+    
+    if(!result || result === null){ 
+        return; 
+    }
+    if (isNumber(result) == false){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "树屋种子店",
+            content: `你好，${entity.player.name}，请输入数字！`,
+        });
+    }
+    if(result<1){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "树屋种子店",
+            content: `你好，${entity.player.name}，你输入的数目无法识别，交易取消了。`,
+        });
+    }
+    if (entity.player.jinbi >= 5*Number(result)){
+        entity.player.jinbi = entity.player.jinbi - 5*Number(result)
+        entity.player.zz = entity.player.zz + Number(result)
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "树屋种子店",
+            content: `购买成功！你现在有${entity.player.zz}个种子，金币余额${entity.player.jinbi}`,
+        });
+    }else{
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "树屋种子店",
+            content: `你好，${entity.player.name}，你的钱不太够哦~`,
+        });
+    }
+    });
+})();
+(async function(){
+    ls = 30
+    world.onPress(async({ button, entity ,raycast:{voxelIndex}}) => {
+        if(button === 'action0'){
+            if(!voxelIndex || voxelIndex == null){
+                return
+            }
+            if (voxels.getVoxel(voxelIndex.x,voxelIndex.y,voxelIndex.z) == 181){
+                if(entity.player.ls >0){
+                    entity.player.ls = entity.player.ls - 1
+                    const f = world.createEntity({
+                        mesh:'mesh/盒饭.vb',
+                        meshScale:new Box3Vector3(0.05,0.05,0.05),
+                        collides:false,
+                        gravity:false,
+                        friction:0, // 关闭摩擦力
+                        position:[
+                            voxelIndex.x+0.5,
+                            voxelIndex.y + 1,
+                            voxelIndex.z+0.5,
+                        ],
+                    });
+                    const result = await entity.player.dialog({
+                        type: Box3DialogType.TEXT,   
+                        title: "盒饭",               
+                        lookTarget: f,             // 相机镜头对准NPC
+                        content: "进食中。。。",
+                    });
+                    await sleep(1000)
+                    f.mesh = 'mesh/空盒饭.vb'
+                    entity.player.je=100
+                    const __ = await entity.player.dialog({
+                        type: Box3DialogType.TEXT,   
+                        title: "盒饭",               
+                        lookTarget: f,             // 相机镜头对准NPC
+                        content: `进食完毕！能量值恢复到100`,
+                    });
+                    f.destroy()
+                }
+            }
+        }
+    })
+    world.querySelectorAll('.ct').forEach((ct)=>{
+        ct.enableInteract = true
+        ct.interactRadius = 3
+        ct.interactHint = ct.id;
+        ct.interactColor = new Box3RGBColor(1,1,1)
+        ct.onInteract(async({entity}) => {
+            if (entity.player.jinbi<13){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "餐厅",
+                    content: `你好，${entity.player.name}，你的钱不够13元呢，你的余额${entity.player.jinbi}`,
+                });
+                return
+            }
+            if (ls <= 0){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "餐厅",
+                    content: `你好，${entity.player.name}，我们已经没有粮食了`,
+                });
+            }
+            entity.player.jinbi = entity.player.jinbi - 13
+            entity.player.ls = entity.player.ls + 1
+            ls = ls - 1
+            const _ = await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: ct.id,               
+                content: `你好，${entity.player.name}，粮食购买成功！你现在有${entity.player.ls}份粮食`,
+            });
+        });
+    })
+    const gc = world.querySelector('#收买公菜');
+    gc.enableInteract = true;
+    gc.interactRadius = 3;
+    gc.interactHint = gc.id;
+    gc.interactColor = new Box3RGBColor(1,1,1);
+    gc.onInteract(async({entity}) => {
+        if (entity.player.gc > 0){
+            ls = ls + entity.player.gc
+            entity.player.gc = 0
+            const result = await entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: gc.id,
+                content: `谢谢你，${entity.player.name}，金币给你，回去拿给农村部的阿姨吧！`,
+            });
+        }else{
+            const result = await entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: gc.id,
+                content: `你好，${entity.player.name}，你没有公菜，到农村部阿姨那里拿任务吧！`,
+            });
+        }
+    });
+    function isNumber(val) {
+    var regPos = /^\d+(\.\d+)?$/; //非负浮点数
+    var regNeg = /^(-(([0-9]+\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\.[0-9]+)|([0-9]*[1-9][0-9]*)))$/; //负浮点数
+    if(regPos.test(val) || regNeg.test(val)) {
+        return true;
+        } else {
+        return false;
+        }
+    }
+    const npc = world.querySelector('#收买自种菜');
+    npc.enableInteract = true; 
+    npc.interactRadius = 3;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+    npc.onInteract(async({entity}) => {
+    const result = await entity.player.dialog({
+        type: Box3DialogType.INPUT,
+        title: "收买自种菜",
+        content: `${entity.player.name}，你要卖多少份粮食？`,
+        confirmText: '确定', 
+        placeholder: '只能输入数字哦~', 
+    });
+
+    
+    if(!result || result === null){ 
+        return; 
+    }
+    if (isNumber(result) == false){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买自种菜",
+            content: `你好，${entity.player.name}，请输入数字！`,
+        });
+    }
+    if(result<1){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买自种菜",
+            content: `你好，${entity.player.name}，你输入的数目无法识别，交易取消了。`,
+        });
+    }
+    if(entity.player.sd < Number(result)){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买自种菜",
+            content: `你好，${entity.player.name}，你没有那么多粮食呀。`,
+        });
+    }else{
+        entity.player.sd = entity.player.sd - Number(result)
+        entity.player.jinbi = entity.player.jinbi + 5*Number(result)
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买自种菜",
+            content: `交易成功！你现在有${entity.player.jinbi}个金币`,
+        });
+    }
+    });
+    const f = world.querySelector('#收买鱼');
+    f.enableInteract = true; 
+    f.interactRadius = 3;   
+    f.interactHint = f.id; 
+    f.interactColor = new Box3RGBColor(1,1,1);  
+    f.onInteract(async({entity}) => {
+    const m_fish = await entity.player.dialog({
+        type: Box3DialogType.INPUT,
+        title: "收买鱼",
+        content: `${entity.player.name}，你要卖多少条鱼？`,
+        confirmText: '确定', 
+        placeholder: '只能输入数字哦~', 
+    });
+
+    
+    if(!m_fish || m_fish === null){ 
+        return; 
+    }
+    if (isNumber(m_fish) == false){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买鱼",
+            content: `你好，${entity.player.name}，请输入数字！`,
+        });
+    }
+    if(m_fish<1){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买鱼",
+            content: `你好，${entity.player.name}，你输入的数目无法识别，交易取消了。`,
+        });
+    }
+    if(entity.player.fish < Number(m_fish)){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买鱼",
+            content: `你好，${entity.player.name}，你没有那么多鱼呀。`,
+        });
+    }else{
+        entity.player.fish = entity.player.fish - Number(m_fish)
+        entity.player.jinbi = entity.player.jinbi + 5*Number(m_fish)
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "收买鱼",
+            content: `交易成功！你现在有${entity.player.jinbi}个金币`,
+        });
+    }
+    });
+})();
+(async function(){
+    function isNumber(val) {
+    var regPos = /^\d+(\.\d+)?$/; //非负浮点数
+    var regNeg = /^(-(([0-9]+\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\.[0-9]+)|([0-9]*[1-9][0-9]*)))$/; //负浮点数
+    if(regPos.test(val) || regNeg.test(val)) {
+        return true;
+        } else {
+        return false;
+        }
+    }
+    const zl = world.querySelector('#zl');
+    zl.enableInteract = true; 
+    zl.interactRadius = 3;   
+    zl.interactHint = "治疗"; 
+    zl.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    zl.onInteract(async({entity}) => {
+        if (entity.player.yyf>0){
+            await entity.player.dialog({
+                type:Box3DialogType.TEXT,
+                title:"治疗",
+                content: `你好，${entity.player.name}，你是不是还没付费？去2号房间付费吧~`,
+            });
+            return
+        }
+        if (entity.player.yyf==0){
+            await entity.player.dialog({
+                type:Box3DialogType.TEXT,
+                title:"治疗",
+                content: `你好，${entity.player.name}，你是不是还没去1号诊室？去1号诊室找医生吧~`,
+            });
+            return
+        }
+        entity.hp = entity.hp + Math.abs(entity.player.yyf)
+        entity.player.yyf = 0
+        const result = await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title:"治疗",               
+            content: `你好，${entity.player.name}，治疗完成啦。`,
+        });
+    });
+    const sf = world.querySelector('#sf');
+    sf.enableInteract = true; 
+    sf.interactRadius = 3;   
+    sf.interactHint = "收费"; 
+    sf.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    sf.onInteract(async({entity}) => {
+        if(entity.player.yyf<1){
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: "收费",               
+                content: `你好，${entity.player.name}，你没有需要支付的医药费`,
+            });
+            return
+        }
+        entity.player.jinbi = entity.player.jinbi - entity.player.yyf
+        entity.player.yyf = entity.player.yyf - entity.player.yyf*2
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: "收费",               
+            content: `你好，${entity.player.name}，支付${entity.player.yyf}元成功，余额${entity.player.jinbi}，可以去3号房间治疗啦~`,
+        });
+    });
+    const npc = world.querySelector('#ys');
+    npc.enableInteract = true; 
+    npc.interactRadius = 5;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+    npc.onInteract(async({entity}) => {
+    if (entity.hp == 100){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "医生",
+            content: `你好，${entity.player.name}，你不是满血吗？`,
+        });
+        return
+    }
+    const result = await entity.player.dialog({
+        type: Box3DialogType.INPUT,
+        title: "医生",
+        content: `${entity.player.name}，你需要补血${100 - entity.hp}，价钱1hp 1元`,
+        confirmText: '确定', 
+        placeholder: '只能输入数字哦~', 
+    });
+
+    
+    if(!result || result === null){ 
+        return; 
+    }
+    if(Number(result)>100 - entity.hp){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "医生",
+            content: `你好，${entity.player.name}，你输入的数字过大！`,
+        });
+        return
+    }
+    if (isNumber(result) == false){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "医生",
+            content: `你好，${entity.player.name}，请输入数字！`,
+        });
+    }
+    if(result<1){
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "医生",
+            content: `你好，${entity.player.name}，你输入的数目无法识别，交易取消了。`,
+        });
+    }
+    if (entity.player.jinbi >= 1*Number(result)){
+        entity.player.jinbi = entity.player.jinbi - 1*Number(result)
+        entity.player.yyf = entity.player.yyf + Number(result)
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "医生",
+            content: `好的，请你到2号房间缴费`,
+        });
+    }else{
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "医生",
+            content: `你好，${entity.player.name}，你的钱不太够哦~`,
+        });
+    }
+    });
+})();
+(async function(){
+    world.querySelectorAll('#地图介绍').forEach((npc) => {;
+    npc.enableInteract = true; 
+    npc.interactRadius = 5;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    npc.onInteract(async({entity}) => {
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `你好，${entity.player.name}，欢迎来到神奇的商业世界，接下来和我一起来了解这个世界吧~`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `世界篇：\n这个地图分为城市和农村两个区域，这两个区域可以通过租车后开车来往或者乘坐公交车来往。城市篇有5个区域，分别是A、B、C座和酒店还有植树地`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `生活篇：\n饥饿值每3秒增加一，能量值也跟着减少1，当能量值为0时，玩家死亡，要注意吃饭哦~吃饭的地方在酒店4楼。劳累值每6秒增加1，劳累值为100时玩家死亡。当自己因为任何原因掉血了，可以去C104治疗`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `租铺篇：\n在办事中心办理即可，铺分为两种，一种是在地面的铺，一种是在A座2-3楼的铺。办理时可选择租哪一种铺（填写信息：店名、宣传语、3个商品的名字和价格【全部必填】）`,
+
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `住房篇：\n酒店和别墅都可住，酒店有6个房间，别墅有3个房间，但价格不一，睡觉后劳累值可减小至0`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `空气篇：\n当玩家租车后驾驶车，砍树，空气会被污染，植树即可解决这一问题`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `农村篇：\n农村可以观赏可以种水稻，水稻可以去卖钱，种水稻之前需要先租田，离开后会租给其他玩家`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `食物篇：\n食物来源就是农村的水稻，农村的水稻需要卖到城市的批发部（C101），当没有人来卖水稻，初始30份粮食全部被花光，城市将没有食物，农村也如此`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `好啦，就介绍到这里，还有什么建议或者发现bug，欢迎评论区留言！`,
+        });
+    });
+    });
+})();
+(async function(){
+    bs = 0
+    bs_player=["","",""]
+    const vd = world.querySelector('#vip_door');
+    vd.enableInteract = true; 
+    vd.interactRadius = 3;   
+    vd.interactHint = "作者别墅大门"; 
+    vd.interactColor = new Box3RGBColor(1,1,1);  
+    vd.onInteract(async({entity}) => {
+        if (entity.player.userKey == "azojq0stiPGQMSnh" || entity.player.boxId == "lyj19800214"){
+            vd.meshInvisible=true
+            vd.collides=false
+            await sleep(1000)
+            vd.meshInvisible=false
+            vd.collides=true
+        }else{
+            entity.player.directMessage("你不是这个屋子的主人")
+        }
+    });
+    const nd = world.querySelector('#n_door');
+    nd.enableInteract = true; 
+    nd.interactRadius = 3;   
+    nd.interactHint = "别墅大门"; 
+    nd.interactColor = new Box3RGBColor(1,1,1);  
+    nd.onInteract(async({entity}) => {
+        can_in = 0
+        for (var i=0; i<3; i++){
+            if(bs_player[i]==entity.player.userKey){
+                can_in = 1
+            }
+        }
+        if (can_in != 0){
+            nd.meshInvisible=true
+            nd.collides=false
+            await sleep(1000)
+            nd.meshInvisible=false
+            nd.collides=true
+        }else{
+            entity.player.directMessage("你不是这个屋子的主人")
+        }
+    });
+    const npc = world.querySelector('#介绍');
+    npc.enableInteract = true; 
+    npc.interactRadius = 3;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    npc.onInteract(async({entity}) => {
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `你好，${entity.player.name}，很高兴认识你，这里是别墅销售中心，现在我来说一下我们的别墅吧~`,
+        });
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `别墅只有一个可出租，1号别墅是作者大大的，2号别墅是可出租的，价格120金币，有3个房间，所以限额3个，现在已经出租了${bs}个，别墅的作用和酒店一样，厨房的也一样。离开地图后不会出租给他人，但游戏重启后会租出给他人`,
+        });
+    });
+    const gm = world.querySelector('#购买');
+    gm.enableInteract = true; 
+    gm.interactRadius = 3;   
+    gm.interactHint = gm.id; 
+    gm.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    gm.onInteract(async({entity}) => {
+        if (entity.player.userKey == ""){
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: gm.id,               
+                content: `你好，${entity.player.name}，请你先登录`,
+            });
+            return
+        }
+        if(entity.player.jinbi<120){
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,   
+                title: gm.id,               
+                content: `你好，${entity.player.name}，你的钱不够哦，需要120金币，你只有${entity.player.jinbi}个金币~`,
+            });
+            return
+        }
+        entity.player.jinbi = entity.player.jinbi -120
+        bs_player.splice(bs,1,entity.player.userKey)
+        bs=bs+1
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: gm.id,               
+            content: `你好，${entity.player.name}，别墅购买成功！余额${entity.player.jinbi}~`,
+        });
+        
+    });
+})();
+(async function(){
+    world.querySelectorAll(".cook").forEach((cook) => {
+        cook.enableInteract = true; 
+        cook.interactRadius = 3;   
+        cook.interactHint = "烹饪机"; 
+        cook.interactColor = new Box3RGBColor(1,1,1);  
+        cook.onInteract(async({entity}) => {
+            if(cook.id=="ff"){
+                if(entity.player.jinbi<6){
+                    entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "烹饪机",
+                        content: `你好，${entity.player.name}，烹饪一次需要6金币，你的金币不够哦~`,
+                    });
+                    return
+                }else{
+                    entity.player.jinbi = entity.player.jinbi - 6
+                    entity.player.directMessage("扣费成功，开始烹饪")
+                }
+            }
+            if(entity.player.sd<1){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "烹饪机",
+                    content: `你好，${entity.player.name}，你没有食材，快去C101批发部购买或去自己种吧`,
+                });
+                return
+            }
+            entity.player.sound("audio/Rec 0101.mp3")
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "烹饪机",
+                content: `烹饪中.....`,
+            });
+            await sleep(2000)
+            entity.player.ls = entity.player.ls-1
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "烹饪机",
+                content: `你好，${entity.player.name}，烹饪完成啦，到附近找个红桌子（方块）点击一下就餐吧~`,
+            });
+        });
+    });
+})();
+(async function(){
+    world.querySelectorAll('#coco_dy').forEach((m) => {
+    m.enableInteract = true;
+    m.interactRadius = 5;
+    m.interactHint = "coco店员";
+    m.interactColor = new Box3RGBColor(1,1,1);
+    m.onInteract(async({entity}) => {
+        const result = await entity.player.dialog({
+        type: Box3DialogType.SELECT,
+        title: "奶茶店",
+        titleTextColor: new Box3RGBAColor(0, 0, 0, 1),
+        titleBackgroundColor: new Box3RGBAColor(0.968, 0.702, 0.392, 1),
+        content: `${entity.player.name}，要点啥么`,
+        options: ['珍珠奶茶！（13金币）', '布丁奶茶~（12金币）','呃，下次一定'],
+        contentTextColor:  new Box3RGBAColor(0, 0, 0, 1),
+        contentBackgroundColor: new Box3RGBAColor(1, 1, 1, 1),
+        lookTarget: entity,
+    });
+    if(!result || result === null){ 
+        return; 
+    }
+    switch (result.index) {
+        case 0:
+            if (entity.player.jinbi >= 13){
+                entity.player.jinbi = entity.player.jinbi - 13
+                const dialog = entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "奶茶店",
+                content: `购买成功！你还剩余${entity.player.jinbi}个金币，请慢用奶茶~`,
+                });
+            }else{
+                const dialog = entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "奶茶店",
+                content: `呃，那个，你的钱好像不够诶，你还剩余${entity.player.jinbi}个金币，下次再来吧，我等你哦~`,
+                });
+            }
+            break;
+        case 1:
+            if (entity.player.jinbi >= 12){
+                entity.player.jinbi = entity.player.jinbi - 12
+                const dialog = entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "奶茶店",
+                content: `购买成功！你还剩余${entity.player.jinbi}个金币，请慢用奶茶~`,
+                });
+            }else{
+                const dialog = entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "奶茶店",
+                content: `呃，那个，你的钱好像不够诶，你还剩余${entity.player.jinbi}个金币，下次再来吧，我等你哦~`,
+                });
+            }
+            break;
+    }
+    });
+    });
+})();
+(async function(){
+    world.querySelectorAll("#red").forEach((red) => {
+    red.enableInteract = true; 
+    red.interactRadius = 2;
+    red.interactHint = "红货架"
+    red.interactColor = new Box3RGBColor(1,1,1);
+    red.onInteract(async({entity}) => {
+        const result = await entity.player.dialog({
+            type: Box3DialogType.SELECT,
+            title: "红区货架",
+            titleTextColor: new Box3RGBAColor(0, 0, 0, 1),
+            titleBackgroundColor: new Box3RGBAColor(0.968, 0.702, 0.392, 1),
+            content: `${entity.player.name}，你要买啥?`,
+            options: ['牙膏 12', '卫生巾 6','筷子 9.9'],   // 将提供玩家选择的选项放入数组里。
+            contentTextColor:  new Box3RGBAColor(0, 0, 0, 1),
+            contentBackgroundColor: new Box3RGBAColor(1, 1, 1, 1),
+            lookEye: entity.position.add(entity.player.facingDirection.scale(5)),
+            lookTarget: entity,
+        });
+
+        
+        if(!result || result === null){ 
+            return; 
+        }
+
+        // 判断玩家选了什么选项。
+        switch (result.index) {
+            case 0:
+                // 如果选择了第一项，即：'没问题'
+                if(entity.player.jinbi<12){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                entity.jinbi = entity.jinbi - 12
+                entity.player.directMessage('扣费成功！牙膏属于你的啦~余额：'+entity.player.jinbi);
+                break;
+            case 1:
+                // 如果选择了第二项，即：'现在没空'
+                if(entity.player.jinbi<6){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                entity.jinbi = entity.jinbi - 6
+                entity.player.directMessage('扣费成功！卫生巾属于你的啦~余额'+entity.player.jinbi);
+                break;
+            case 2:
+            if(entity.player.jinbi<9.9){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                entity.jinbi = entity.jinbi - 9.9
+                entity.player.directMessage('扣费成功！筷子属于你的啦~余额'+entity.player.jinbi);
+            default:
+                // 注意，使用 switch 分支的时候，不要漏了后面的 break; 
+        }
+    });
+})
+world.querySelectorAll("#ye").forEach((red) => {
+    red.enableInteract = true; 
+    red.interactRadius = 2;
+    red.interactHint = "绿架"
+    red.interactColor = new Box3RGBColor(1,1,1);
+    red.onInteract(async({entity}) => {
+        const result = await entity.player.dialog({
+            type: Box3DialogType.SELECT,
+            title: "绿区货架",
+            titleTextColor: new Box3RGBAColor(0, 0, 0, 1),
+            titleBackgroundColor: new Box3RGBAColor(0.968, 0.702, 0.392, 1),
+            content: `${entity.player.name}，你要买啥的`,
+            options: ['益力多 3.9', '桃桃果汁 5','维他奶 5'],   // 将提供玩家选择的选项放入数组里。
+            contentTextColor:  new Box3RGBAColor(0, 0, 0, 1),
+            contentBackgroundColor: new Box3RGBAColor(1, 1, 1, 1),
+            lookEye: entity.position.add(entity.player.facingDirection.scale(5)),
+            lookTarget: entity,
+        });
+
+        
+        if(!result || result === null){ 
+            return; 
+        }
+
+        // 判断玩家选了什么选项。
+        switch (result.index) {
+            case 0:
+                if(entity.player.jinbi<3.9){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                // 如果选择了第一项，即：'没问题'
+                entity.jinbi = entity.jinbi - 3.9
+                entity.player.directMessage('扣费成功！益力多属于你的啦~余额：'+entity.player.jinbi);
+                break;
+            case 1:
+                // 如果选择了第二项，即：'现在没空'
+                if(entity.player.jinbi<5){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                entity.jinbi = entity.jinbi - 5
+                entity.player.directMessage('扣费成功！桃桃果汁属于你的啦~余额'+entity.player.jinbi);
+                break;
+            case 2:
+                if(entity.player.jinbi<5){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                entity.jinbi = entity.jinbi - 5
+                entity.player.directMessage('扣费成功！维他奶属于你的啦~余额'+entity.player.jinbi);
+            default:
+                // 注意，使用 switch 分支的时候，不要漏了后面的 break; 
+        }
+    });
+})
+world.querySelectorAll("#bule").forEach((red) => {
+    red.enableInteract = true; 
+    red.interactRadius = 2;
+    red.interactHint = "黄货架"
+    red.interactColor = new Box3RGBColor(1,1,1);
+    red.onInteract(async({entity}) => {
+        const result = await entity.player.dialog({
+            type: Box3DialogType.SELECT,
+            title: "文具货架",
+            titleTextColor: new Box3RGBAColor(0, 0, 0, 1),
+            titleBackgroundColor: new Box3RGBAColor(0.968, 0.702, 0.392, 1),
+            content: `${entity.player.name}，你要买啥的`,
+            options: ['晨光中性笔 9.9', '橡皮擦 5','钢笔 15'],   // 将提供玩家选择的选项放入数组里。
+            contentTextColor:  new Box3RGBAColor(0, 0, 0, 1),
+            contentBackgroundColor: new Box3RGBAColor(1, 1, 1, 1),
+            lookEye: entity.position.add(entity.player.facingDirection.scale(5)),
+            lookTarget: entity,
+        });
+
+        
+        if(!result || result === null){ 
+            return; 
+        }
+
+        // 判断玩家选了什么选项。
+        switch (result.index) {
+            case 0:
+                // 如果选择了第一项，即：'没问题'
+                if(entity.player.jinbi<9.9){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                entity.jinbi = entity.jinbi - 9.9
+                entity.player.directMessage('扣费成功！晨光中性笔属于你的啦~余额：'+entity.player.jinbi);
+                break;
+            case 1:
+                if(entity.player.jinbi<5){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                // 如果选择了第二项，即：'现在没空'
+                entity.jinbi = entity.jinbi - 5
+                entity.player.directMessage('扣费成功！橡皮擦属于你的啦~余额'+entity.player.jinbi);
+                break;
+            case 2:
+                if(entity.player.jinbi<15){
+                    const dialog = entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "购买",
+                        content: `你好，${entity.player.name}，你的金币不够哦。`,
+                    });
+                    return
+                }
+                entity.jinbi = entity.jinbi - 15
+                entity.player.directMessage('扣费成功！钢笔属于你的啦~余额'+entity.player.jinbi);
+            default:
+                // 注意，使用 switch 分支的时候，不要漏了后面的 break; 
+        }
+    });
+})
+})();
+(async function(){
+    function isNumber(val) {
+    var regPos = /^\d+(\.\d+)?$/; //非负浮点数
+    var regNeg = /^(-(([0-9]+\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\.[0-9]+)|([0-9]*[1-9][0-9]*)))$/; //负浮点数
+    if(regPos.test(val) || regNeg.test(val)) {
+        return true;
+        } else {
+        return false;
+        }
+    }
+    world.onPlayerJoin(({entity})=>{entity.addTag(entity.player.name)})
+    world.querySelectorAll("#转账").forEach((finder) => {
+    finder.enableInteract = true; 
+    finder.interactRadius = 3;  
+    finder.interactHint = "转账";
+    finder.interactColor = new Box3RGBColor(1, 1, 1); 
+    finder.onInteract(async ({ entity }) => {
+        const result = await entity.player.dialog({
+            title: '转账',
+            type: Box3DialogType.INPUT, 
+            content: `请问你要转给谁?`,
+            titleBackgroundColor: new Box3RGBAColor(0.968, 0.702, 0.392, 1),
+            placeholder: '请输入玩家名', 
+            confirmText: '确认',
+        })
+        const findee = world.querySelector("." + result);
+        try {
+            if (findee.isPlayer) {
+                const num=await entity.player.dialog({
+                    title: '系统',
+                    type: Box3DialogType.INPUT,
+                    confirmText: '确定',
+                    placeholder: '请输入数字...',
+                    content: `找到玩家${findee.player.name}，请问你要转多少钱？`,
+                })
+                if(isNumber(num)){
+                    if(entity.player.jinbi>=Number(num)){
+                        findee.player.jinbi = findee.player.jinbi+Number(num)
+                        entity.player.jinbi = entity.player.jinbi - Number(num)
+                        entity.player.dialog({
+                            type: Box3DialogType.TEXT,
+                            title: "转账",
+                            content: `转账成功！`,
+                        });
+                        findee.player.dialog({
+                            type: Box3DialogType.TEXT,
+                            title: "系统",
+                            content: `你收到来自${entity.player.name}的转账${num}元，你现在有${findee.player.jinbi}金币`,
+                        });
+                    }else{
+                        entity.player.dialog({
+                            type: Box3DialogType.TEXT,
+                            title: "转账",
+                            content: `你没有那么多钱`,
+                        });
+                    }
+                }else{
+                    entity.player.dialog({
+                        type: Box3DialogType.TEXT,
+                        title: "转账",
+                        content: `请输入数字！`,
+                    });
+                }
+            }
+        } catch(err) {
+            await entity.player.dialog({
+                type:Box3DialogType.TEXT,
+                title:'转账error',
+                content:'无法查找此玩家'
+            })
+        }
+    })
+})
+})();
+(async function(){
+    const npc = world.querySelector('#个人信息查看');
+    npc.enableInteract = true; 
+    npc.interactRadius = 3;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    npc.onInteract(async({entity}) => {
+        await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `以下为你的个人信息：\n金币：${entity.player.jinbi}\n粮食：${entity.player.sd}\n树种子：${entity.player.zz}`,
+        });
+    });
+})();
+(async function(){
+    const npc = world.querySelector('#指引');
+    npc.enableInteract = true; 
+    npc.interactRadius = 5;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    npc.onInteract(async({entity}) => {
+        const result = await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `一号窗：租铺\n二号窗：退租铺\n三号窗：转账\n四号窗：个人资产查询`,
+        });
+    });
+})();
+(async function(){
+    const npc = world.querySelector('#前台护士');
+    npc.enableInteract = true; 
+    npc.interactRadius = 5;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    npc.onInteract(async({entity}) => {
+        const result = await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `你好，${entity.player.name}，到1号室找医生就可以啦~`,
+        });
+    });
+})();
+(async function(){
+    //////////获奖提名代码/////////////////////
+    const trophy = world.querySelector('#奖杯-1')
+    trophy.enableInteract = true
+    trophy.interactRadius = 5
+    trophy.interactColor.set(0, 1, 1, 1)
+    trophy.interactHint = '2021全民接龙创作节 奖项提名: ' + '最佳创意奖' + ' 优质作品奖'
+    trophy.meshEmissive = 0.015
+    trophy.meshColor.set(1, 1, 0, 1)
+    trophy.onInteract(({ entity }) => {
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "吉吉喵点评",
+            content: `模拟经营类\n生活住房食物空气等，体验生活的经营\n玩法不复杂，但是能够体现生活的消耗与获取\n虽然从持续性的玩法趣味性上相较于其他作品不算突出\n但是也是一个不错的创意作品`,
+        });
+    })
+})();
+(async function(){
+    world.onClick(({clicker,button,raycast:{hitEntity,distance}}) => {
+        if(!hitEntity || hitEntity == null){
+            return
+        }
+        if(button != "action0"){
+            return
+        }
+        if(distance>5){
+            clicker.player.directMessage("太远了，钓不到")
+        }
+        if(hitEntity.hasTag("fish")){
+            clicker.player.fish = clicker.player.fish + 1
+            clicker.player.directMessage(`你钓到了一条鱼，现在你有${clicker.player.fish}条鱼`)
+            fish = fish-1
+            hitEntity.destroy()
+        }
+    })
+    world.onPress(({ button, entity ,raycast:{voxelIndex}}) => {
+        if(button === 'action1'){
+            if(entity.position.y>70){
+                if(entity.position.x>62 && entity.position.x<82){
+                    if(entity.position.z>33 && entity.position.z<101){
+                        if(entity.player.fish>0){
+                            if(voxels.getVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z) == 364){
+                                const e = world.createEntity(lions[0]);
+                                e.position.y = 79
+                                e.position.x = voxelIndex.x
+                                e.position.z = voxelIndex.x
+                                lions.push(e);
+                                world.say(`${entity.player.name}放生了一条鱼`)
+                                fish=fish+1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
+    const lions = world.querySelectorAll('#鱼');//小年兽的模型名称叫做'狮子-1'
+    lions[0].collides = true; // 开启碰撞
+    lions[0].friction = 0; // 关闭摩擦力
+    fish = 40
+    for (let i = 0; i < 40; i++) {
+        const e = world.createEntity(lions[0]);
+        e.addTag("fish")
+        e.position.x = 72
+        e.position.z = 71
+        e.position.y += Math.random() * 50; // 随机高度, 防止弹飞
+        lions.push(e);
+    }
+    const npc = world.querySelector('#钓鱼人');
+    npc.enableInteract = true; 
+    npc.interactRadius = 3;   
+    npc.interactHint = npc.id; 
+    npc.interactColor = new Box3RGBColor(1,1,1);  
+
+    
+    npc.onInteract(async({entity}) => {
+    await entity.player.dialog({
+            type: Box3DialogType.TEXT,   
+            title: npc.id,               
+            content: `你好，${entity.player.name}，这是一片奇怪的鱼塘，里面的鱼每过60秒就会成倍增长，但如果到了增长时间，鱼塘里没有鱼了就不会增长，永远都没有鱼，这太恐怖了，听说如果出现这种情况，右键点击鱼塘放生鱼就可以慢慢恢复了，但前提是你要有鱼`,
+        });
+    });
+    // onTick中处理实体的运动
+    world.onTick(() => {
+        // 处理每个实体
+        lions.forEach((e) => {
+            if (voxels.getVoxel(e.position.x, e.position.y-1, e.position.z) != 364 && voxels.getVoxel(e.position.x, e.position.y-1, e.position.z) != 125 && voxels.getVoxel(e.position.x, e.position.y-1, e.position.z) != 0){
+                e.position = new Box3Vector3(72, 79, 71)
+            }
+            e.position = new Box3Vector3(e.position.x, 79, e.position.z)
+            const sdxz = Math.abs(e.velocity.x) + Math.abs(e.velocity.z);
+            if (sdxz > 0.1) {
+                // sdxz大于一, 判定为运动中
+                // 计算当前方向
+                const angle = Math.floor(Math.atan2(e.velocity.z, e.velocity.x) / (2. * Math.PI) * 256) * 2. * Math.PI / 256;
+                // 设置朝向, 如果朝向不对, 可自行在后面添加相应的rotateX/rotateY/rotateZ
+                const orientation = new Box3Quaternion(0, 0, 0, 1).rotateY(angle).rotateY(Math.PI);
+                e.meshOrientation.copy(orientation);
+            } else {
+                // 随机角度
+                const randTheta = Math.random() * Math.PI * 2;
+                // 随机速度大小
+                const mag = Math.random();
+                // 设置速度
+                e.velocity.x = mag * Math.sin(randTheta);
+                e.velocity.z = mag * Math.cos(randTheta);
+            }
+        });
+    });
+    while (true){
+        await sleep(60000)
+        if(fish<60){
+            if(fish<0){
+                return
+            }
+            world.say("增加了"+fish+"条鱼")
+            for (let o = 0; o < fish; o++) {
+                await sleep(1)
+                const e = world.createEntity(lions[0]);
+                e.position.y += Math.random() * 50; // 随机高度, 防止弹飞
+                e.position.x = 72
+                e.position.z = 71
+                lions.push(e);
+            }
+            fish=fish*2
+        }
+    }
+})();
+(async function(){
+    world.querySelectorAll("#烤鱼摊").forEach((cook) => {
+        cook.enableInteract = true; 
+        cook.interactRadius = 8;   
+        cook.interactHint = "烤鱼摊"; 
+        cook.interactColor = new Box3RGBColor(1,1,1);  
+        cook.onInteract(async({entity}) => {
+            if(entity.player.jinbi<5){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "烤鱼摊",
+                    content: `你好，${entity.player.name}，烹饪一次需要5金币，你的金币不够哦~`,
+                });
+                return
+            }else{
+                entity.player.jinbi = entity.player.jinbi - 5
+                entity.player.directMessage("扣费成功，开始烤鱼")
+            }
+            if(entity.player.fish<1){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "烤鱼摊",
+                    content: `你好，${entity.player.name}，你没有鱼，钓一条吧~`,
+                });
+                return
+            }
+            await entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "烤鱼摊",
+                content: `烤鱼中.....`,
+            });
+            await sleep(2000)
+            entity.player.fish = entity.player.fish-1
+            entity.player.je = entity.player.je + 20
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "烤鱼摊",
+                content: `你好，${entity.player.name}，烤好了！你的能量值提高了20！`,
+            });
+        });
+    });
+})();
