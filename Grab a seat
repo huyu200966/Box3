@@ -1,0 +1,126 @@
+(async function(){
+    world.onPlayerJoin(async ({entity})=>{
+    entity.player.spawnPoint=new Box3Vector3(68,73,69);
+    entity.player.forceRespawn();
+    entity.player.directMessage('欢迎游玩《抢位置》，请等待新一轮游戏开始...');
+
+});
+
+
+})();
+
+(async function(){var game, winer;
+
+function mathRandomInt(a, b) {
+  if (a > b) {
+    // Swap a and b to ensure a is smaller.
+    var c = a;
+    a = b;
+    b = c;
+  }
+  return Math.floor(Math.random() * (b - a + 1) + a);
+}
+
+
+game = 1;
+while (game == 1) {
+  voxels.setVoxel(68,70,66,(voxels.id("air")));
+voxels.setVoxel(68,70,67,(voxels.id("air")));
+voxels.setVoxel(68,70,68,(voxels.id("air")));
+voxels.setVoxel(68,70,69,(voxels.id("air")));
+voxels.setVoxel(68,70,70,(voxels.id("air")));
+voxels.setVoxel(66,70,66,(voxels.id("air")));
+voxels.setVoxel(66,70,67,(voxels.id("air")));
+voxels.setVoxel(66,70,68,(voxels.id("air")));
+voxels.setVoxel(66,70,69,(voxels.id("air")));
+voxels.setVoxel(66,70,70,(voxels.id("air")));
+voxels.setVoxel(67,70,66,(voxels.id("air")));
+voxels.setVoxel(67,70,67,(voxels.id("air")));
+voxels.setVoxel(67,70,68,(voxels.id("air")));
+voxels.setVoxel(67,70,69,(voxels.id("air")));
+voxels.setVoxel(67,70,70,(voxels.id("air")));
+voxels.setVoxel(69,70,66,(voxels.id("air")));
+voxels.setVoxel(69,70,67,(voxels.id("air")));
+voxels.setVoxel(69,70,68,(voxels.id("air")));
+voxels.setVoxel(69,70,69,(voxels.id("air")));
+voxels.setVoxel(69,70,70,(voxels.id("air")));
+voxels.setVoxel(70,70,66,(voxels.id("air")));
+voxels.setVoxel(70,70,67,(voxels.id("air")));
+voxels.setVoxel(70,70,68,(voxels.id("air")));
+voxels.setVoxel(70,70,69,(voxels.id("air")));
+voxels.setVoxel(70,70,70,(voxels.id("air")));
+world.say('新一轮游戏开始！')
+  await sleep(2000);
+  voxels.setVoxel(68,70,66,(voxels.id("glass")));
+voxels.setVoxel(68,70,67,(voxels.id("glass")));
+voxels.setVoxel(68,70,68,(voxels.id("glass")));
+voxels.setVoxel(68,70,69,(voxels.id("glass")));
+voxels.setVoxel(68,70,70,(voxels.id("glass")));
+voxels.setVoxel(66,70,66,(voxels.id("glass")));
+voxels.setVoxel(66,70,67,(voxels.id("glass")));
+voxels.setVoxel(66,70,68,(voxels.id("glass")));
+voxels.setVoxel(66,70,69,(voxels.id("glass")));
+voxels.setVoxel(66,70,70,(voxels.id("glass")));
+voxels.setVoxel(67,70,66,(voxels.id("glass")));
+voxels.setVoxel(67,70,67,(voxels.id("glass")));
+voxels.setVoxel(67,70,68,(voxels.id("glass")));
+voxels.setVoxel(67,70,69,(voxels.id("glass")));
+voxels.setVoxel(67,70,70,(voxels.id("glass")));
+voxels.setVoxel(69,70,66,(voxels.id("glass")));
+voxels.setVoxel(69,70,67,(voxels.id("glass")));
+voxels.setVoxel(69,70,68,(voxels.id("glass")));
+voxels.setVoxel(69,70,69,(voxels.id("glass")));
+voxels.setVoxel(69,70,70,(voxels.id("glass")));
+voxels.setVoxel(70,70,66,(voxels.id("glass")));
+voxels.setVoxel(70,70,67,(voxels.id("glass")));
+voxels.setVoxel(70,70,68,(voxels.id("glass")));
+voxels.setVoxel(70,70,69,(voxels.id("glass")));
+voxels.setVoxel(70,70,70,(voxels.id("glass")));
+
+  for (var count2 = 0; count2 < 5; count2++) {
+    var repeat_end = mathRandomInt(3, 20);
+    for (var count = 0; count < repeat_end; count++) {
+      voxels.setVoxel((mathRandomInt(1, 180)),9,(mathRandomInt(1, 180)),(voxels.id("green_light")));
+    }
+    world.say('新一局游戏开始！')
+    await sleep(15000);
+    for (let i = 0; i < 128; ++i) {     
+    for (let j = 0; j < 128; ++j) {         
+        voxels.setVoxel(i, 8, j, 'air')
+    } 
+}
+
+    await sleep(5000);
+    for (let i = 0; i < 128; ++i) {     
+    for (let j = 0; j < 128; ++j) {         
+        voxels.setVoxel(i, 8, j, 'stainless_steel')
+    } 
+}
+for (let i = 0; i < 128; ++i) {     
+    for (let j = 0; j < 128; ++j) {         
+        voxels.setVoxel(i, 9, j, 'air')
+    } 
+}
+
+    await sleep(5000);
+    world.querySelectorAll("player").forEach((entity)=>{
+      if (8 < entity.position.y && 20 > entity.position.y) {
+        world.say(['名单更新：玩家',entity.player.name,'掉出世界，游戏失败！'].join(''));
+      }
+
+    });
+    world.say('新一局游戏开始...');
+  }
+  world.querySelectorAll("player").forEach((entity)=>{
+    if (false) {
+      winer = (typeof winer == 'number' ? winer : 0) + 1;
+    }
+
+  });
+  world.say(['恭喜还在场上的',winer,'个玩家获得最终的胜利！！！'].join(''));
+  await sleep(15000);
+  world.say('新一轮游戏即将开始');
+}
+
+
+})();
