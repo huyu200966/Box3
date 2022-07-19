@@ -1,0 +1,724 @@
+require("./大炮.js")
+require("./挂机判定.js")
+require("./落水判断（扣分）.js")
+require("./颁奖台.js")
+require("./幸运方块.js")
+world.querySelectorAll(".wall").forEach((e)=>{e.meshInvisible = true})
+world.onPlayerJoin(async({ entity }) => {
+    entity.player.have_team = false
+});
+function isInList(list,value){
+    for(var i = 0; i < list.length; i++){
+        if(value == list[i]){
+            return true;
+        }
+    }
+    return false;
+}
+world.onVoxelContact(({ entity , voxel }) => {
+    if(!entity.isPlayer)return
+    voxelName = voxels.name(voxel);
+    if(voxelName == "lava02"){
+        entity.hurt(3)
+        entity.player.target_p.hurt(3)
+    }
+    if (voxelName == 'brick_01' && isInList(world.gj_list,entity)){
+        entity.player.runSpeed = 0.05
+        entity.player.walkSpeed = 0.05
+    }else{
+        entity.player.runSpeed = 0.4
+        entity.player.walkSpeed = 0.22
+    }
+});
+world.onPress(({ button, entity ,raycast:{voxelIndex,normal}}) => {
+    if(world.game_mode == "c"){
+        v = voxelIndex.add(normal)
+        if(button == "action0"){
+            if(entity.player.js == "ph"){
+                voxels.setVoxel(v.x,v.y,v.z,"lava02")
+                world.v_list.push([v.x,v.y,v.z])
+            }else{
+                voxels.setVoxel(v.x,v.y,v.z,"brick_02")
+                world.v_list.push([v.x,v.y,v.z])
+            }
+        }
+        if(button == "action1"){
+            if(entity.player.js == "ph"){
+                voxels.setVoxel(v.x,v.y,v.z,"ice")
+                world.v_list.push([v.x,v.y,v.z])
+            }else{
+                voxels.setVoxel(v.x,v.y,v.z,"bonuce_pad")
+                world.v_list.push([v.x,v.y,v.z])
+            }
+        }
+        return
+    }
+    if(button == 'action1'){
+        if(world.game_mode == "zd"){
+            zt = "组队环节"
+        }else if(world.game_mode == "c"){
+            zt="破坏环节"
+        }else if(world.game_mode == "run"){
+            zt = "正式游戏跑酷环节"
+        }else if(world.game_mode == "bj"){
+            zt = "颁奖环节"
+        }else{
+            zt = "error"
+        }
+        entity.player.dialog({
+            type: Box3DialogType.TEXT,
+            title: "我是系统",
+            content: `那个，屏幕前的那位听着！\n当前游戏状态是：${zt}\n当前游戏状态剩余时间：${world.time}`,
+        });
+    }
+})
+async function wait(time){
+    world.time = time
+    while (1){
+        await sleep(1000)
+        if(world.time <= 0){
+            break
+        }
+        world.time -=1
+    }
+}
+async function tz_game(player,type,word){
+    player_list = []
+    if(type == "inGame"){
+        world.querySelectorAll("player").forEach((p)=>{
+            if(!p.player.have_team)return
+            player_list.push(p)
+        })
+    }else if(type == "list"){
+        player_list = player
+    }else{
+        world.querySelectorAll("player").forEach((p)=>{
+            player_list.push(p)
+        })
+    }
+    player_list.forEach((p)=>{
+        p.player.dialog({
+            type:Box3DialogType.TEXT,
+            title:"屑系统",
+            content:word
+        })
+    })
+    
+}
+async function run_game(){
+    world.say("新一轮游戏开始")
+    const startingPoint = [[7,11,9],[7,11,16],[7,11,22],[7,13,30],[7,11,37]]
+    team_list = []
+    world.sd = 0
+    await sleep(1000)
+    world.team = 0
+    world.game_mode = "zd"
+    world.querySelectorAll("player").forEach((p)=>{
+        p.player.have_team = false
+        p.fixed = false
+        p.enableInteract = true
+        p.interactRadius = 5
+        if(p.player.have_team){
+            p.interactHint = "已组队"
+        }else{
+            p.interactHint = "未组队"
+        }
+        p.onInteract(async({entity,targetEntity})=>{
+            entity.player.dialog({
+                type: Box3DialogType.TEXT,
+                title: "屑系统",
+                content: `已向${targetEntity.player.name}发起组队请求，正在等待对方同意`,
+            });
+            if(targetEntity.player.have_team){
+                entity.player.dialog({
+                    type: Box3DialogType.SELECT,
+                    title: "屑系统",
+                    content: `${targetEntity.player.name}表示自己没有替身`,
+                });
+                return
+            }
+            const result = await targetEntity.player.dialog({
+                type: Box3DialogType.SELECT,
+                title: "屑系统",
+                content: `${entity.player.name}想和您组成一队`,
+                options: ['我同意！', '下次一定'],
+            });
+            if(!result || result == null)return
+            if (result.index == 1){
+                entity.player.dialog({
+                    type: Box3DialogType.TEXT,
+                    title: "屑系统",
+                    content: `但是……\n${targetEntity.player.name}表示拒绝！`,
+                });
+                return
+            }
+            if(world.sd >= 5){
+                tz_game([entity,targetEntity],"list","赛道已满，请等待下一局游戏")
+            }
+            entity.player.have_team = true
+            targetEntity.player.have_team = true
+            entity.player.target_p = targetEntity
+            targetEntity.player.target_p = entity
+            entity.interactHint = "已组队"
+            targetEntity.interactHint = "已组队"
+            world.team+=1
+            team_list.push([entity,targetEntity])
+            entity.player.dialog({//成功组队提醒
+                type: Box3DialogType.TEXT,
+                title: "屑系统",
+                content: `诶！你是不是在看这个弹窗！Σ(っ °Д °;)っ\n总之，${targetEntity.player.name}表示同意，成功组队`,
+            });
+            entity.position = startingPoint[world.sd]
+            targetEntity.position = startingPoint[world.sd]
+            entity.player.sp = world.sd
+            targetEntity.player.sp = world.sd
+            world.sd+=1
+        })
+    })
+    await wait(30)
+    while (1){
+        if(world.team>=1){
+            break
+        }
+        await sleep(1000)
+    }
+    world.game_mode = "c"
+    world.say("破坏时间开始")
+    tz_game("inGame","inGame","破坏时间开始")
+    world.v_list = []
+    world.querySelectorAll(".wall").forEach((e)=>{e.collides = false})
+    world.querySelectorAll("player").forEach((p)=>{p.player.canFly = true})
+    world.querySelectorAll("player").forEach((p)=>{p.player.enable3DCursor = true})
+    for(let i=0;i<team_list.length;i++){
+        if(Math.random() > 0.5){
+            team_list[i][0].player.js = "ph"
+            team_list[i][0].player.js = "d"
+        }else{
+            team_list[i][0].player.js = "d"
+            team_list[i][0].player.js = "ph"
+        }
+    }
+    await wait(30)
+    world.querySelectorAll(".wall").forEach((e)=>{e.collides = true})
+    world.querySelectorAll("player").forEach((p)=>{p.player.canFly = false})
+    world.querySelectorAll("player").forEach((p)=>{p.player.enable3DCursor = false})
+    world.querySelectorAll("player").forEach((p)=>{
+        if(p.player.have_team == false)return
+        p.enableDamage = true
+        p.player.felt_w = true
+        p.player.type='running'
+        p.player.a = false
+        p.position = startingPoint[p.player.sp]
+        tz_game([p],"list","游戏正式开始")
+    })
+    world.game_mode = "run"
+    world.a_team = 0
+    world.time = 240
+    while(1){
+        await sleep(1000)
+        world.time -= 1
+        if(world.time <= 0 || world.team == world.a_team){
+            world.querySelectorAll("player").forEach((p=>{
+                if(p.player.have_team && p.player.a == false){
+                    p.hp=0
+                    p.player.directMessage("时间到")
+                }
+            }))
+            break
+        }
+    }
+    world.say('我宣布——游戏时间结束，颁奖仪式开始！')
+    world.game_mode = "bj"
+    for(let i=0;i<world.v_list.length;i++){
+        vl = world.v_list[i]
+        voxels.setVoxel(vl[0],vl[1],vl[2])
+    }
+    await sleep(15000)
+};
+(async function(){
+    while(1){
+        await run_game()
+    }
+
+
+async function run_jn(entity,jn_function){
+    entity.player.jn_time = 30
+    wait_jn(entity)
+    while (1){
+        await jn_function(entity)
+        if(entity.player.jn_time <= 0){
+            break
+        }
+    }
+}
+async function wait_jn(entity){
+    while (1){
+        entity.player.jn_time -= 1//检测到观澜她..动了！！！（澜：关我什么事）
+        if(entity.player.jn_time <= 0){
+            break
+        }
+    }
+}
+world.onEntitySeparate(async({ entity, other }) => {
+    if(other.hasTag("幸运方块")){
+        other.destroy()
+    }
+    if(!entity.isPlayer)return
+    if(!other.hasTag("幸运方块"))return
+    r=Math.random()
+    if(r<=0.3){
+        entity.player.directMessage("恭喜获得奖励：hp+25")
+        entity.hp += 25
+        entity.player.target_p.hp += 25 
+    }else if(r>0.3 && r<=0.75){
+        entity.player.directMessage("恭喜获得奖励：跑步速度提升")
+        entity.player.runSpeed=0.5
+        await sleep(30000)
+        entity.player.runSpeed = 0.4
+    }else{
+        entity.player.directMessage("恭喜获得奖励：视角回归")
+        entity.player.cameraEntity = entity
+    }
+})
+
+world.onPlayerJoin(async({ entity }) => {
+    entity.player.gj = false
+    while (1){
+        entity.player.pdgj = true
+        await sleep(30000)
+        if(entity.player.pdgj){
+            entity.player.directMessage("你是不是……很长时间没动啦？在这样我要判定你挂机啦！")
+            await sleep(10000)
+            if(entity.player.pdgj){
+                entity.player.gj = true
+            }       
+        }
+    }
+});
+world.onPress(({ button, entity }) => {
+    if(button == 'walk' || button == 'run'){
+       entity.player.gj = false
+       entity.player.pdgj = false
+    }
+})
+
+gj = world.addZone({
+    selector: 'player',
+    bounds: {
+        lo: [12,  6, 5],
+        hi: [57, 18, 41],
+    },
+})
+world.gj_list=[]
+gj.onEnter(({ entity }) => {
+    world.gj_list.push(entity)
+    entity.player.gj_num = world.gj_list.length
+});
+gj.onLeave(({ entity }) => {
+    for(i=0;i<world.gj_list.length;i++){
+        if(world.gj_list[i] == entity){
+            world.gj_list.splice(i,1)
+        }
+    }
+});
+console.clear()
+dp = world.querySelector('.cdp')
+ani = dp.animate([
+    { position: [60.5,19.71,9]},
+    { position: [60.5,19.71,37]},
+    { position: [60.5,19.71,9]},
+], {
+    duration: 16 * 6,
+    iterations: Infinity,
+})
+world.onEntityContact(({ entity, other }) => {
+    if(!entity.isPlayer && entity.hasTag("dpd") && !other.hasTag("dpd")){entity.destroy()}
+    if(!other.isPlayer && other.hasTag("dpd") && !entity.hasTag("dpd")){other.destroy()}
+    if(entity.isPlayer){
+        if(!other.hasTag("dpd"))return
+        p = entity
+    }else if(other.isPlayer){
+        if(!entity.hasTag("dpd"))return
+        p = other
+    }else{
+        return
+    }
+    p.player.cameraEntity = p.player.target_p
+    p.player.directMessage("你被炮弹打中，视角转移到你的队友")
+    p.player.target_p.player.directMessage("你的队友被炮弹打中，视角已切换到你这，请注意配合")
+});
+world.onVoxelContact(({entity,voxel}) => {
+    if(voxel == voxels.id("stone"))return
+    if(!entity.isPlayer && entity.hasTag("dpd")){
+        entity.destroy()
+    }
+});
+world.onTick(({ tick }) => {
+    world.querySelectorAll(".dpd").forEach((e)=>{
+        if(e.velocity == new Box3Vector3(0, 0, 0)){
+    })
+});
+async function run(){
+    await sleep(1000)
+    while(1){
+        dp = world.querySelector('.cdp')
+        p = world.gj_list
+        num = Math.floor(Math.random()*(0-p.length) + p.length)
+        if(!p[num] || p[num == null]){
+            e.destroy()
+        }
+            await sleep(100)
+            continue
+        }
+        if(world.game_mode != "run"){
+            await sleep(100)
+            continue
+        }
+        target = p[num]
+        pdEntity = world.createEntity({
+            mesh:"mesh/鱼雷-火箭.vb",
+            position: dp.position,
+            meshScale: [0.1,0.1,0.1],
+            gravity: true,
+            fixed: false,
+            collides: true,
+            friction: 0,
+            mass: 0.01,
+        })
+        pdEntity.addTag("dpd")
+        x_x = target.position.x-dp.position.x
+        x_z = target.position.z-dp.position.z
+        pdEntity.meshOrientation = Math.atan2(x_z - x_x)
+        fs = pdEntity.animate([
+            {position:dp.position},
+            {position:target.position}
+        ],{
+            duration: 16*0.5,
+            iterations: 1
+        })
+        fs.onFinish(()=>{
+            console.log("完成一次发射")
+            pdEntity.destroy()
+        })
+        await sleep(100)
+    }
+}
+run()
+
+world.onFluidEnter(async({ entity, voxel})=>{
+    if (!entity.isPlayer) return;
+    if(entity.player.have_team && world.game_mode == "run" && entity.player.have_team){
+        if(entity.player.felt_w)return//防止重复扣分
+        entity.hurt(1)
+        entity.player.target_p.hurt(1)
+        entity.player.felt_w = true
+        while(entity.player.felt_w){
+            await sleep(10000)
+            entity.hurt(1)
+            entity.player.target_p.hurt(1)
+        }
+    }
+})
+world.onVoxelContact(({ entity , voxel }) => {
+    const voxelName = voxels.name(voxel);
+    try{
+        if(!entity.player.have_team)return
+    }catch{
+        return
+    }
+    if (voxelName == 'brick_01' || voxelName == 'brick_02'){
+        entity.player.felt_w = false
+    }
+});
+
+rientation = Math.atan2(x_z - x_x)
+        fs = pdEntity.animate([
+            {position:dp.position},
+            {position:target.position}
+        ],{
+            duration: 16*0.5,
+            iterations: 1
+        })
+        fs.onFinish(()=>{
+            console.log("完成一次发射")
+            pdEntity.destroy()
+        })
+        await sleep(100)
+    }
+}
+run()
+落水判断（扣分）.js
+world.onFluidEnter(async({ entity, voxel})=>{
+    if (!entity.isPlayer) return;
+    if(entity.player.have_team && world.game_mode == "run" && entity.player.have_team){
+        if(entity.player.felt_w)return//防止重复扣分
+        entity.hurt(1)
+        entity.player.target_p.hurt(1)
+        entity.player.felt_w = true
+        while(entity.player.felt_w){
+            await sleep(10000)
+            entity.hurt(1)
+            entity.player.target_p.hurt(1)
+        }
+    }
+})
+world.onVoxelContact(({ entity , voxel }) => {
+    const voxelName = voxels.name(voxel);
+    try{
+        if(!entity.player.have_team)return
+    }catch{
+        return
+    }
+    if (voxelName == 'brick_01' || voxelName == 'brick_02'){
+        entity.player.felt_w = false
+    }
+});
+颁奖台.js
+score1 = new Array(0,0,0,0,0,0)
+score2 = new Array(0,0,0,0,0,0)
+entity1 = new Array()
+entity2 = new Array()
+world.onPlayerJoin(({ entity }) => {
+    entity.onEntityContact(async ({ other }) => {
+        if (other.hasTag('zd') && entity.player.type == 'running'&&world.game_mode=='run') {
+            entity.fixed=true
+            entity.player.a = true
+            if(entity.player.target_p.player.a){
+                world.a_team += 1
+            }
+            world.say(entity.player.name + ' 到达了终点！')
+            entity.player.type = 'winning'
+            if (other.hasTag('team_5')) {//17 18 19
+                if (score1[5] == 0) { score1[5] = entity.hp; entity1[5] = entity }
+                else { score2[5] = entity.hp; entity2[5] = entity }
+                voxels.setVoxel(16, 11, 48, Math.floor(entity.hp / 100) * 2 + 17)
+                voxels.setVoxel(17, 11, 48, Math.floor(entity.hp / 10) % 10 * 2 + 17)
+                voxels.setVoxel(18, 11, 48, Math.floor(entity.hp % 10) * 2 + 17)
+            }
+            if (other.hasTag('team_4')) {//17 18 19
+                if (score1[4] == 0) { score1[4] = entity.hp; entity1[4] = entity }
+                else { score2[4] = entity.hp; entity2[4] = entity }
+                voxels.setVoxel(16 + 7 * 1, 11, 48, Math.floor(entity.hp / 100) * 2 + 17)
+                voxels.setVoxel(17 + 7 * 1, 11, 48, Math.floor(entity.hp / 10) % 10 * 2 + 17)
+                voxels.setVoxel(18 + 7 * 1, 11, 48, Math.floor(entity.hp % 10) * 2 + 17)
+            }
+            if (other.hasTag('team_3')) {//17 18 19
+                if (score1[3] == 0) { score1[3] = entity.hp; entity1[3] = entity }
+                else { score2[3] = entity.hp; entity2[3] = entity }
+                voxels.setVoxel(16 + 7 * 2, 11, 48, Math.floor(entity.hp / 100) * 2 + 17)
+                voxels.setVoxel(17 + 7 * 2, 11, 48, Math.floor(entity.hp / 10) % 10 * 2 + 17)
+                voxels.setVoxel(18 + 7 * 2, 11, 48, Math.floor(entity.hp % 10) * 2 + 17)
+            }
+            if (other.hasTag('team_2')) {//17 18 19
+                if (score1[2] == 0) { score1[2] = entity.hp; entity1[2] = entity }
+                else { score2[2] = entity.hp; entity2[2] = entity }
+                voxels.setVoxel(16 + 7 * 3, 11, 48, Math.floor(entity.hp / 100) * 2 + 17)
+                voxels.setVoxel(17 + 7 * 3, 11, 48, Math.floor(entity.hp / 10) % 10 * 2 + 17)
+                voxels.setVoxel(18 + 7 * 3, 11, 48, Math.floor(entity.hp % 10) * 2 + 17)
+            }
+            if (other.hasTag('team_1')) {//17 18 19
+                if (score1[1] == 0) { score1[1] = entity.hp; entity1[1] = entity }
+                else { score2[1] = entity.hp; entity2[1] = entity }
+                voxels.setVoxel(16 + 7 * 4, 11, 48, Math.floor(entity.hp / 100) * 2 + 17)
+                voxels.setVoxel(17 + 7 * 4, 11, 48, Math.floor(entity.hp / 10) % 10 * 2 + 17)
+                voxels.setVoxel(18 + 7 * 4, 11, 48, Math.floor(entity.hp % 10) * 2 + 17)
+            }
+            // var high = entity.hp / 25
+            // for (let i = 0; i < 10; i++) {
+            //     other.position.y += high / 10
+            //     entity.position.y += high / 10
+            //     await sleep(100)
+            // }
+        }
+    })
+})
+bjt1 = world.querySelector('.team_1')
+        bjt2 = world.querySelector('.team_2')
+        bjt3 = world.querySelector('.team_3')
+        bjt4 = world.querySelector('.team_4')
+        bjt5 = world.querySelector('.team_5')
+async function game() {
+    while (true) {
+        while (true) {
+            await sleep(100)
+            if (world.game_mode == 'bj') {
+                break;
+            }
+        }
+        bjt1 = world.querySelector('.team_1')
+        bjt2 = world.querySelector('.team_2')
+        bjt3 = world.querySelector('.team_3')
+        bjt4 = world.querySelector('.team_4')
+        bjt5 = world.querySelector('.team_5')
+        if (score2[1] != 0) {
+
+            var high = score2[1] / 25
+            entity1[1].position = new Box3Vector3(bjt1.position.x, bjt1.position.y+1, bjt1.position.z - 0.7)
+            entity2[1].position = new Box3Vector3(bjt1.position.x, bjt1.position.y+1, bjt1.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt1.position.y += high / 10
+                entity1[1].fixed=false
+                entity2[1].fixed=false
+                entity1[1].position.y += high / 10
+                entity2[1].position.y += high / 10
+                entity1[1].fixed=true
+                entity2[1].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[2] != 0) {
+            var high = score2[2] / 25
+            entity1[2].position = new Box3Vector3(bjt2.position.x, bjt2.position.y+1, bjt2.position.z - 0.7)
+            entity2[2].position = new Box3Vector3(bjt2.position.x, bjt2.position.y+1, bjt2.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                entity1[2].fixed=false
+                entity2[2].fixed=false
+                bjt2.position.y += high / 10
+                entity1[2].position.y += high / 10
+                entity2[2].position.y += high / 10
+                entity1[2].fixed=true
+                entity2[2].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[3] != 0) {
+            var high = score2[3] / 25
+            entity1[3].position = new Box3Vector3(bjt3.position.x, bjt3.position.y+1, bjt3.position.z - 0.7)
+            entity2[3].position = new Box3Vector3(bjt3.position.x, bjt3.position.y+1, bjt3.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt3.position.y += high / 10
+                entity1[3].fixed=false
+                entity2[3].fixed=false
+                entity1[3].position.y += high / 10
+                entity2[3].position.y += high / 10
+                entity1[3].fixed=true
+                entity2[3].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[4] != 0) {
+            var high = score2[4] / 25
+            entity1[4].position = new Box3Vector3(bjt4.position.x, bjt4.position.y+1, bjt4.position.z - 0.7)
+            entity2[2].position = new Box3Vector3(bjt4.position.x, bjt4.position.y+1, bjt4.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt4.position.y += high / 10
+                entity1[4].fixed=false
+                entity2[4].fixed=false
+                entity1[4].position.y += high / 10
+                entity2[4].position.y += high / 10
+                entity1[4].fixed=true
+                entity2[4].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[5] != 0) {
+            var high = score2[5] / 25
+            entity1[5].position = new Box3Vector3(bjt5.position.x, bjt5.position.y+1, bjt5.position.z - 0.7)
+            entity2[5].position = new Box3Vector3(bjt5.position.x, bjt5.position.y+1, bjt5.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt5.position.y += high / 10
+                entity1[5].fixed=false
+                entity2[5].fixed=false
+                entity1[5].position.y += high / 10
+                entity2[5].position.y += high / 10
+                entity1[5].fixed=true
+                entity2[5].fixed=true
+                await sleep(100)
+            }
+        }
+        while (true) {
+            await sleep(100)
+            if (world.game_mode == 'zd') {
+                break;
+            }
+        }
+        bjt1 = world.querySelector('.team_1')
+        bjt2 = world.querySelector('.team_2')
+        bjt3 = world.querySelector('.team_3')
+        bjt4 = world.querySelector('.team_4')
+        bjt5 = world.querySelector('.team_5')
+        if (score2[1] != 0) {
+
+            var high = score2[1] / 25
+            entity1[1].position = new Box3Vector3(bjt1.position.x, bjt1.position.y+1, bjt1.position.z - 0.7)
+            entity2[1].position = new Box3Vector3(bjt1.position.x, bjt1.position.y+1, bjt1.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt1.position.y -= high / 10
+                entity1[1].fixed=false
+                entity2[1].fixed=false
+                entity1[1].position.y -= high / 10
+                entity2[1].position.y -= high / 10
+                entity1[1].fixed=true
+                entity2[1].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[2] != 0) {
+            var high = score2[2] / 25
+            entity1[2].position = new Box3Vector3(bjt2.position.x, bjt2.position.y+1, bjt2.position.z - 0.7)
+            entity2[2].position = new Box3Vector3(bjt2.position.x, bjt2.position.y+1, bjt2.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                entity1[2].fixed=false
+                entity2[2].fixed=false
+                bjt2.position.y -= high / 10
+                entity1[2].position.y -= high / 10
+                entity2[2].position.y -= high / 10
+                entity1[2].fixed=true
+                entity2[2].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[3] != 0) {
+            var high = score2[3] / 25
+            entity1[3].position = new Box3Vector3(bjt3.position.x, bjt3.position.y+1, bjt3.position.z - 0.7)
+            entity2[3].position = new Box3Vector3(bjt3.position.x, bjt3.position.y+1, bjt3.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt3.position.y -= high / 10
+                entity1[3].fixed=false
+                entity2[3].fixed=false
+                entity1[3].position.y -= high / 10
+                entity2[3].position.y -= high / 10
+                entity1[3].fixed=true
+                entity2[3].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[4] != 0) {
+            var high = score2[4] / 25
+            entity1[4].position = new Box3Vector3(bjt4.position.x, bjt4.position.y+1, bjt4.position.z - 0.7)
+            entity2[2].position = new Box3Vector3(bjt4.position.x, bjt4.position.y+1, bjt4.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt4.position.y -= high / 10
+                entity1[4].fixed=false
+                entity2[4].fixed=false
+                entity1[4].position.y -= high / 10
+                entity2[4].position.y -= high / 10
+                entity1[4].fixed=true
+                entity2[4].fixed=true
+                await sleep(100)
+            }
+        }
+        if (score2[5] != 0) {
+            var high = score2[5] / 25
+            entity1[5].position = new Box3Vector3(bjt5.position.x, bjt5.position.y+1, bjt5.position.z - 0.7)
+            entity2[5].position = new Box3Vector3(bjt5.position.x, bjt5.position.y+1, bjt5.position.z + 0.7)
+            for (let i = 0; i < 10; i++) {
+                bjt5.position.y -= high / 10
+                entity1[5].fixed=false
+                entity2[5].fixed=false
+                entity1[5].position.y -= high / 10
+                entity2[5].position.y -= high / 10
+                entity1[5].fixed=true
+                entity2[5].fixed=true
+                await sleep(100)
+            }
+        }
+        for(let i=1;i<=5;i++){
+            if(entity1[i]!=undefined){entity1[i].fixed=false;}
+            if(entity2[i]!=undefined){entity2[i].fixed=false;}
+        }
+        score1 = new Array(0,0,0,0,0,0)
+        score2 = new Array(0,0,0,0,0,0)
+    }
+}
+game()
